@@ -17,9 +17,9 @@
 
           buildInputs = with pkgs; [
             just
-{% for pkg in nix_packages %}
+{%- for pkg in nix_packages %}
             {{ pkg }}
-{% endfor %}
+{%- endfor %}
           ];
 
           shellHook = ''
