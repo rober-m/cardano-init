@@ -72,10 +72,6 @@ pub fn print_summary(selection: &Selection, registry: &Registry) {
     if selection.nix {
         println!("  Nix:      {}", style("yes").green());
     }
-    if selection.docker {
-        println!("  Docker:   {}", style("yes").green());
-    }
-
     println!();
 }
 

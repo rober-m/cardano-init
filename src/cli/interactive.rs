@@ -30,17 +30,11 @@ pub fn run_interactive(registry: &Registry) -> Result<Selection, CliError> {
         .with_prompt("Set up Nix for dependency management?")
         .default(false)
         .interact()?;
-    let docker = Confirm::with_theme(&theme)
-        .with_prompt("Set up Docker for infrastructure services?")
-        .default(false)
-        .interact()?;
-
     let selection = Selection {
         project_name,
         assignments,
         network,
         nix,
-        docker,
     };
 
     // Step 5: Summary + confirmation

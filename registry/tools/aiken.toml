@@ -9,6 +9,7 @@ writing Cardano validators and produces CIP-57 blueprints natively."""
 website = "https://aiken-lang.org"
 languages = ["aiken"]
 system_deps = ["aiken-cli"]
+nix_packages = ["aiken"]
 
 [roles.on-chain]
 template = "aiken/on-chain"

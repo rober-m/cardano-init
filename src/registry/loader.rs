@@ -58,6 +58,8 @@ struct ToolMetaToml {
     website: String,
     languages: Vec<String>,
     system_deps: Vec<String>,
+    #[serde(default)]
+    nix_packages: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -92,6 +94,7 @@ fn to_tool_def(file_name: &str, raw: ToolFileToml) -> Result<ToolDef, RegistryEr
         website: raw.tool.website,
         languages: raw.tool.languages,
         system_deps: raw.tool.system_deps,
+        nix_packages: raw.tool.nix_packages,
         roles,
     })
 }

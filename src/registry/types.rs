@@ -100,6 +100,7 @@ pub struct ToolDef {
     pub website: String,
     pub languages: Vec<String>,
     pub system_deps: Vec<String>,
+    pub nix_packages: Vec<String>,
     pub roles: HashMap<Role, RoleConfig>,
 }
 
@@ -165,7 +166,6 @@ pub struct Selection {
     pub assignments: Vec<RoleAssignment>,
     pub network: Network,
     pub nix: bool,
-    pub docker: bool,
 }
 
 // ---------------------------------------------------------------------------

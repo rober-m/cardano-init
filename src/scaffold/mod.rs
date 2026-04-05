@@ -96,7 +96,6 @@ mod tests {
             assignments,
             network: Network::Preview,
             nix: false,
-            docker: false,
         }
     }
 

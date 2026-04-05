@@ -9,6 +9,7 @@ language. Choose it for one role or several."""
 website = "https://scalus.org"
 languages = ["scala"]
 system_deps = ["sbt", "jvm"]
+nix_packages = ["sbt", "jdk"]
 
 [roles.on-chain]
 template = "scalus/on-chain"

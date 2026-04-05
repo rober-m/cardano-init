@@ -46,10 +46,6 @@ pub struct Args {
     #[arg(long)]
     pub nix: bool,
 
-    /// Generate Docker configuration
-    #[arg(long)]
-    pub docker: bool,
-
     /// Show what would be generated without writing to disk
     #[arg(long)]
     pub dry_run: bool,
@@ -63,7 +59,6 @@ impl Args {
             || !self.infra.is_empty()
             || self.testing.is_some()
             || self.nix
-            || self.docker
             || self.dry_run
             || self.network != "preview"
     }
@@ -190,7 +185,6 @@ pub fn run() -> Result<(), CliError> {
             args.testing.as_deref(),
             &args.network,
             args.nix,
-            args.docker,
             &registry,
         )?
     } else {

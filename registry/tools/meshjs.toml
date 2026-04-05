@@ -10,6 +10,7 @@ dApps and off-chain transaction builders."""
 website = "https://meshjs.dev"
 languages = ["typescript"]
 system_deps = ["node"]
+nix_packages = ["nodejs"]
 
 [roles.off-chain]
 template = "meshjs/off-chain"

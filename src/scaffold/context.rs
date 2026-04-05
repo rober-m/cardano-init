@@ -40,7 +40,7 @@ pub struct TemplateContext {
     pub env_vars: HashMap<String, String>,
 
     pub nix: bool,
-    pub docker: bool,
+    pub nix_packages: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,7 @@ pub fn build_context(
     let mut off_chain = None;
     let mut infra_tools = Vec::new();
     let mut testing = None;
+    let mut nix_packages = Vec::new();
 
     for assignment in &selection.assignments {
         let tool = registry.get(&assignment.tool_id).ok_or_else(|| {
@@ -77,6 +78,12 @@ pub fn build_context(
             language: tool.languages.first().cloned().unwrap_or_default(),
             dir: assignment.role.dir().to_string(),
         };
+
+        for pkg in &tool.nix_packages {
+            if !nix_packages.contains(pkg) {
+                nix_packages.push(pkg.clone());
+            }
+        }
 
         match assignment.role {
             Role::OnChain => on_chain = Some(rc),
@@ -113,7 +120,7 @@ pub fn build_context(
         env_vars,
 
         nix: selection.nix,
-        docker: selection.docker,
+        nix_packages,
     })
 }
 
@@ -136,7 +143,6 @@ mod tests {
             assignments,
             network: Network::Preview,
             nix: false,
-            docker: false,
         }
     }
 
@@ -230,5 +236,33 @@ mod tests {
         ]);
         let result = build_context(&sel, &registry());
         assert!(matches!(result, Err(ScaffoldError::RoleMismatch { .. })));
+    }
+
+    #[test]
+    fn nix_packages_collected() {
+        let sel = selection(vec![
+            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
+        ]);
+        let ctx = build_context(&sel, &registry()).unwrap();
+        assert!(ctx.nix_packages.contains(&"aiken".to_string()));
+    }
+
+    #[test]
+    fn nix_packages_deduped_across_tools() {
+        // Scalus on-chain + scalus testing — same tool, same nix_packages
+        let sel = selection(vec![
+            RoleAssignment { role: Role::OnChain, tool_id: "scalus".into() },
+            RoleAssignment { role: Role::Testing, tool_id: "scalus".into() },
+        ]);
+        let ctx = build_context(&sel, &registry()).unwrap();
+        // sbt and jdk should appear only once each
+        assert_eq!(
+            ctx.nix_packages.iter().filter(|p| *p == "sbt").count(),
+            1
+        );
+        assert_eq!(
+            ctx.nix_packages.iter().filter(|p| *p == "jdk").count(),
+            1
+        );
     }
 }

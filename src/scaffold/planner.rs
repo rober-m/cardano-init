@@ -17,7 +17,7 @@ pub enum TemplateSource {
     Base(String),
     /// From `templates/<tool>/<role>/<path>`
     Role(String),
-    /// From `templates/_nix/<path>` or `templates/_docker/<path>`
+    /// From `templates/_nix/<path>`
     Optional(String),
     /// Inline content (e.g., empty `.gitkeep` files)
     Inline(Vec<u8>),
@@ -174,8 +174,18 @@ pub fn plan(selection: &Selection, registry: &Registry) -> Result<FilePlan, Scaf
     }
 
     // --- Optional layers ---
-    // Nix and Docker templates will be added here when they exist.
-    // For now, skip if nix/docker flags are set but templates don't exist.
+    if selection.nix {
+        entries.push(FileEntry {
+            dest: PathBuf::from("flake.nix"),
+            source: TemplateSource::Optional("_nix/flake.nix.jinja".into()),
+            render: true,
+        });
+        entries.push(FileEntry {
+            dest: PathBuf::from(".envrc"),
+            source: TemplateSource::Inline(b"use flake\n".to_vec()),
+            render: false,
+        });
+    }
 
     Ok(FilePlan { entries })
 }
@@ -199,7 +209,6 @@ mod tests {
             assignments,
             network: Network::Preview,
             nix: false,
-            docker: false,
         }
     }
 
@@ -290,5 +299,28 @@ mod tests {
             plan(&sel, &registry()),
             Err(ScaffoldError::ToolNotFound { .. })
         ));
+    }
+
+    #[test]
+    fn nix_true_includes_flake() {
+        let mut sel = selection(vec![
+            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
+        ]);
+        sel.nix = true;
+        let plan = plan(&sel, &registry()).unwrap();
+
+        let dests: Vec<&str> = plan.entries.iter().map(|e| e.dest.to_str().unwrap()).collect();
+        assert!(dests.contains(&"flake.nix"));
+    }
+
+    #[test]
+    fn nix_false_excludes_flake() {
+        let sel = selection(vec![
+            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
+        ]);
+        let plan = plan(&sel, &registry()).unwrap();
+
+        let dests: Vec<&str> = plan.entries.iter().map(|e| e.dest.to_str().unwrap()).collect();
+        assert!(!dests.contains(&"flake.nix"));
     }
 }

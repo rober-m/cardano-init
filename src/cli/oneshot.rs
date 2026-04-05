@@ -13,7 +13,6 @@ pub fn build_selection(
     testing: Option<&str>,
     network: &str,
     nix: bool,
-    docker: bool,
     registry: &Registry,
 ) -> Result<Selection, CliError> {
     validate_project_name(name)?;
@@ -65,7 +64,6 @@ pub fn build_selection(
         assignments,
         network,
         nix,
-        docker,
     })
 }
 
@@ -124,7 +122,7 @@ mod tests {
         let sel = build_selection(
             "my-project",
             Some("aiken"), None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         ).unwrap();
 
@@ -139,13 +137,12 @@ mod tests {
         let sel = build_selection(
             "test-proj",
             Some("aiken"), Some("meshjs"), &[], Some("scalus"),
-            "preprod", true, false,
+            "preprod", true,
             &registry(),
         ).unwrap();
 
         assert_eq!(sel.assignments.len(), 3);
         assert!(sel.nix);
-        assert!(!sel.docker);
         assert_eq!(sel.network.to_string(), "preprod");
     }
 
@@ -153,7 +150,7 @@ mod tests {
     fn unknown_tool_errors() {
         let result = build_selection(
             "test", Some("nonexistent"), None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::UnknownTool { .. })));
@@ -164,7 +161,7 @@ mod tests {
         // Aiken doesn't support off-chain
         let result = build_selection(
             "test", None, Some("aiken"), &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::ToolRoleMismatch { .. })));
@@ -174,7 +171,7 @@ mod tests {
     fn no_roles_errors() {
         let result = build_selection(
             "test", None, None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::NoRolesSelected)));
@@ -184,7 +181,7 @@ mod tests {
     fn invalid_network_errors() {
         let result = build_selection(
             "test", Some("aiken"), None, &[], None,
-            "badnet", false, false,
+            "badnet", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::InvalidNetwork { .. })));
@@ -194,7 +191,7 @@ mod tests {
     fn invalid_project_name_empty() {
         let result = build_selection(
             "", Some("aiken"), None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::InvalidProjectName { .. })));
@@ -204,7 +201,7 @@ mod tests {
     fn invalid_project_name_dot() {
         let result = build_selection(
             ".hidden", Some("aiken"), None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::InvalidProjectName { .. })));
@@ -214,7 +211,7 @@ mod tests {
     fn invalid_project_name_slash() {
         let result = build_selection(
             "bad/name", Some("aiken"), None, &[], None,
-            "preview", false, false,
+            "preview", false,
             &registry(),
         );
         assert!(matches!(result, Err(CliError::InvalidProjectName { .. })));

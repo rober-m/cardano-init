@@ -123,7 +123,6 @@ mod tests {
             assignments,
             network: Network::Preview,
             nix: false,
-            docker: false,
         }
     }
 
@@ -181,6 +180,27 @@ mod tests {
         }).expect("blueprint/.gitkeep should be in rendered files");
 
         assert!(gitkeep.content.is_empty());
+    }
+
+    #[test]
+    fn nix_flake_renders_with_packages() {
+        let mut sel = selection(vec![
+            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
+        ]);
+        sel.nix = true;
+        let reg = registry();
+        let plan = planner::plan(&sel, &reg).unwrap();
+        let ctx = build_context(&sel, &reg).unwrap();
+        let files = render(&plan, &ctx).unwrap();
+
+        let flake = files.iter().find(|f| {
+            f.dest == PathBuf::from("flake.nix")
+        }).expect("flake.nix should be in rendered files");
+
+        let content = std::str::from_utf8(&flake.content).unwrap();
+        assert!(content.contains("aiken"));
+        assert!(content.contains("test-project"));
+        assert!(!content.contains("{%"));
     }
 
     #[test]
