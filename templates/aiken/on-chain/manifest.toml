@@ -1,0 +1,17 @@
+[manifest]
+summary = "Aiken on-chain project with a simple always-succeeds validator"
+
+[[files]]
+source = "aiken.toml.jinja"
+dest = "aiken.toml"
+render = true
+
+[[files]]
+source = "Justfile.jinja"
+dest = "Justfile"
+render = true
+
+[[files]]
+source = "validators/example.ak"
+dest = "validators/example.ak"
+render = false

@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+rust-embed = "8"
+thiserror = "2"
+minijinja = "2"
+
+[dev-dependencies]
+tempfile = "3"

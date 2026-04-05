@@ -1,0 +1,17 @@
+[manifest]
+summary = "MeshJS off-chain project with a transaction building example"
+
+[[files]]
+source = "package.json.jinja"
+dest = "package.json"
+render = true
+
+[[files]]
+source = "Justfile.jinja"
+dest = "Justfile"
+render = true
+
+[[files]]
+source = "src/index.ts"
+dest = "src/index.ts"
+render = false

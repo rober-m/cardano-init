@@ -1,0 +1,15 @@
+[tool]
+id = "meshjs"
+name = "MeshJS"
+description = """\
+A comprehensive TypeScript SDK for building on Cardano. MeshJS \
+provides transaction building, wallet integration, and smart \
+contract interaction out of the box. Works with any JavaScript \
+runtime (Node.js, Deno, Bun) and is a great choice for web-based \
+dApps and off-chain transaction builders."""
+website = "https://meshjs.dev"
+languages = ["typescript"]
+system_deps = ["node"]
+
+[roles.off-chain]
+template = "meshjs/off-chain"

@@ -1,0 +1,20 @@
+[tool]
+id = "scalus"
+name = "Scalus"
+description = """\
+A Scala-native toolkit for Cardano. Scalus can compile Scala code \
+to UPLC for on-chain validators, build transactions for off-chain \
+interaction, and run validators locally for testing — all in one \
+language. Choose it for one role or several."""
+website = "https://scalus.org"
+languages = ["scala"]
+system_deps = ["sbt", "jvm"]
+
+[roles.on-chain]
+template = "scalus/on-chain"
+
+[roles.off-chain]
+template = "scalus/off-chain"
+
+[roles.testing]
+template = "scalus/testing"

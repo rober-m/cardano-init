@@ -1,0 +1,16 @@
+# On-chain component (Aiken)
+# Part of {{ project_name }}
+
+build:
+    aiken build
+    cp -f plutus.json ../{{ blueprint_path }}
+
+test:
+    aiken check
+
+dev:
+    @echo "Aiken does not have a watch mode. Run 'just build' after changes."
+
+clean:
+    rm -rf build/
+    rm -f plutus.json
