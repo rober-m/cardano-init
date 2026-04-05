@@ -32,15 +32,14 @@ The codebase is a single Rust crate. The module structure is planned as follows 
 
 - `src/cli/` — user interaction only (dialoguer, output formatting). No logic.
 - `src/registry/` — deserializes embedded TOML tool definitions into typed structs.
-- `src/validation/` — pure validation over a `Selection` + `Registry`. Split into `hard.rs` (blocking errors) and `soft.rs` (warnings).
 - `src/scaffold/` — four-phase pipeline: context building → planning → rendering → writing.
 - `src/contract.rs` — constants for the interface contract (canonical paths, env var names, Justfile task names).
 
-**Key invariant:** `registry/`, `validation/`, `contract`, and `scaffold/` must have zero dependency on `cli/`. They are pure logic over data.
+**Key invariant:** `registry/`, `contract`, and `scaffold/` must have zero dependency on `cli/`. They are pure logic over data.
 
 ### Data model
 
-- **`Selection`** — fully resolved user choices (project name, role assignments, network, nix/docker flags).
+- **`Selection`** — fully resolved user choices (project name, role assignments, network, nix flag).
 - **`ToolDef`** — loaded from `registry/tools/<tool>.toml`. Each tool declares which roles it fills and which template path to use.
 - **`TemplateContext`** — built from `Selection` + `Registry`; passed to MiniJinja for rendering.
 - **Infrastructure role** is the only role that allows multiple tools simultaneously.

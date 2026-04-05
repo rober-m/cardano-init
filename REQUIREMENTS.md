@@ -45,28 +45,11 @@ All tool definitions live in a declarative registry (TOML files) embedded into t
 
 No changes to the CLI source code or core logic are required — only new data files.
 
-## 3. Validation and Constraints
-
-### 3.1 Hard constraints (block with error)
-
-- **No duplicate roles (except Infrastructure).** Two different tools cannot be assigned to the same role. If a user selects Aiken for on-chain, they cannot also select Plinth for on-chain. **Infrastructure is the exception** — multiple infrastructure tools can coexist (e.g., Kupo + Ogmios), since this role represents services rather than a framework choice.
-- **Single-tool multi-role is allowed.** Scalus can be assigned to both on-chain and testing in the same project — that is one tool filling two roles, not two tools in the same role.
-
-### 3.2 Soft constraints (warn but allow)
-
-- **Unusual pairings.** If a combination works but is uncommon or involves unnecessary toolchain complexity, warn the user. Example: "You've selected Plinth (Haskell) for on-chain and MeshJS (TypeScript) for off-chain. This works via CIP-57 blueprints but requires both GHC and Node.js. Consider whether Lucid Evolution (TypeScript) might simplify your setup."
-- **Missing companions.** If a tool strongly benefits from a companion that wasn't selected, suggest it. Example: "You've selected Kupo for infrastructure. Kupo is typically paired with Ogmios — would you like to add it?"
-
-### 3.3 Validation timing
-
-- In interactive mode: validate after each selection and surface issues immediately.
-- In one-shot / config-file mode: validate the full selection up front before generating anything.
-
-## 4. CIP-57 Blueprint Integration
+## 3. CIP-57 Blueprint Integration
 
 The CIP-57 Plutus blueprint is the primary integration seam between on-chain and off-chain components.
 
-### 4.1 The Interface Contract
+### 3.1 The Interface Contract
 
 The central design principle is: **each tool template conforms to a shared interface contract, so any producer works with any consumer without per-pair integration logic.**
 
@@ -78,7 +61,7 @@ The contract defines:
 
 Because every template independently conforms to this contract, composition is guaranteed: **any on-chain template + any off-chain template will interoperate correctly without ever being tested as a pair.** The CLI's integration wiring is generic — it only needs to know which roles are present, not which specific tools fill them.
 
-### 4.2 Implications
+### 3.2 Implications
 
 - The CLI does NOT need per-pair integration logic. No "Aiken + MeshJS" special case.
 - Adding a new tool means conforming to the contract. If the contract is satisfied, the tool works with every existing tool in other roles.
@@ -86,9 +69,9 @@ Because every template independently conforms to this contract, composition is g
 - When only one side of the integration is present (e.g., on-chain only), the blueprint is still generated at the canonical path but no consumer wiring is needed.
 - The CLI does not track which tools produce or consume blueprints. This is a template-level concern enforced by the contract compliance tests, not by registry metadata.
 
-## 5. Project Structure
+## 4. Project Structure
 
-### 5.1 Monorepo layout
+### 4.1 Monorepo layout
 
 All generated projects follow a monorepo structure:
 
@@ -120,7 +103,7 @@ my-protocol/
 
 Only directories for selected roles are created. The top-level README always explains the full architecture, including which roles are present and how they connect.
 
-### 5.2 Task orchestration
+### 4.2 Task orchestration
 
 Every project includes a `Justfile` with standardized tasks:
 
@@ -132,17 +115,16 @@ Every project includes a `Justfile` with standardized tasks:
 
 The Justfile delegates to each component's native build system (e.g., `aiken build`, `npm run build`, `deno task build`).
 
-### 5.3 Dependency management (optional)
+### 4.3 Dependency management (optional)
 
 If the user opts in during scaffolding:
 
 - **Nix** — a `flake.nix` is generated that provides a dev shell with all required toolchains (e.g., Aiken CLI, Node.js, GHC). Running `nix develop` drops you into a shell where everything works.
-- **Docker** — a `docker-compose.yml` and per-component Dockerfiles are generated for containerized development and for infrastructure services.
 - **Neither** — the README documents all prerequisites and how to install them manually.
 
-## 6. Scaffolded Example Project
+## 5. Scaffolded Example Project
 
-### 6.1 Working out of the box
+### 5.1 Working out of the box
 
 Every generated project must include a **simple but complete example** that compiles, runs, and demonstrates the integration between selected components. This is not boilerplate — it is a functioning mini-protocol.
 
@@ -155,7 +137,7 @@ The example should:
 
 If multiple roles are selected, the example must demonstrate them working **together**, not in isolation.
 
-### 6.2 Guided documentation
+### 5.2 Guided documentation
 
 Each component's README should explain:
 
@@ -166,20 +148,20 @@ Each component's README should explain:
 
 The top-level README should include an architecture diagram (text-based) showing how components connect.
 
-## 7. CLI Interface
+## 6. CLI Interface
 
-### 7.1 Interactive mode (default)
+### 6.1 Interactive mode (default)
 
 When run without arguments, the CLI enters an interactive guided flow:
 
 1. **Welcome and explanation** — briefly explain what the CLI does and what a Cardano protocol project looks like.
 2. **Role selection** — present the four roles with descriptions. User selects which ones they want (multi-select).
 3. **Tool selection per role** — for each selected role, present available tools with descriptions. Highlight recommendations for the user's current selections so far.
-4. **Options** — project name, Nix/Docker preference, network target (preview/preprod/mainnet).
+4. **Options** — project name, Nix preference, network target (preview/preprod/mainnet).
 5. **Summary** — show the full selection and the directory structure that will be created.
 6. **Confirmation and generation.**
 
-### 7.2 One-shot mode
+### 6.2 One-shot mode
 
 ```
 cardano-init \
@@ -191,13 +173,13 @@ cardano-init \
 
 All options specified via flags.
 
-### 7.3 Utility commands
+### 6.3 Utility commands
 
 - `cardano-init --dry-run` — show what would be generated without writing to disk.
 
-## 8. Template System
+## 7. Template System
 
-### 8.1 Structure
+### 7.1 Structure
 
 Templates are organized by tool and role:
 
@@ -231,56 +213,56 @@ templates/
 └── ...
 ```
 
-### 8.2 Composition
+### 7.2 Composition
 
 The scaffolder works in phases:
 
 1. **Base layer** — emit the shared skeleton (Justfile, top-level README, gitignore, blueprint directory, optional .env).
 2. **Role layers** — for each selected role, emit the tool's template into the corresponding subdirectory.
-3. **Assembly** — the base layer templates are parametric: the Justfile, top-level README, and .env are generated based on which roles are present. Because all templates conform to the interface contract (§4.1), this step is generic — it doesn't need to know which specific tools were selected, only which roles exist.
-4. **Optional layers** — emit Nix/Docker configuration if requested.
+3. **Assembly** — the base layer templates are parametric: the Justfile, top-level README, and .env are generated based on which roles are present. Because all templates conform to the interface contract (§3.1), this step is generic — it doesn't need to know which specific tools were selected, only which roles exist.
+4. **Optional layers** — emit Nix configuration if requested.
 
 Because composition relies on the interface contract rather than per-pair logic, **no tool-specific integration wiring is needed.** The base Justfile template simply iterates over active roles and delegates to their standardized tasks.
 
 Templates use a simple templating engine (e.g., Handlebars, Tera, or MiniJinja) with access to the full project context: project name, selected tools, roles, network, options, etc.
 
-## 9. Extensibility
+## 8. Extensibility
 
-### 9.1 Adding a new tool
+### 8.1 Adding a new tool
 
 Requires no changes to CLI source code or core logic. Because registry and templates are embedded via rust-embed, the binary must be recompiled after adding new files. Author provides:
 
 1. A tool definition file (`registry/tools/newtool.toml`) with all metadata fields from §2.2.
-2. One or more template directories (`templates/newtool/<role>/`), each conforming to the interface contract (§4.1).
+2. One or more template directories (`templates/newtool/<role>/`), each conforming to the interface contract (§3.1).
 
 Because all templates conform to the same interface contract, **no combinatorial testing is required.** A new on-chain tool only needs to be tested in isolation — if it produces a valid blueprint at the canonical path and exposes the standard Justfile tasks, it is guaranteed to compose correctly with every existing off-chain and testing tool.
 
-### 9.2 Plugin hooks (future)
+### 8.2 Plugin hooks (future)
 
 Reserve the possibility for tools to define lifecycle hooks (e.g., "after scaffolding, run `aiken new`"). Not required for v1 but the architecture should not preclude it.
 
-## 10. Non-Functional Requirements
+## 9. Non-Functional Requirements
 
 - **Language:** Rust, using `clap` for argument parsing, `dialoguer` for interactive prompts, `minijinja` for template rendering, and `rust-embed` for bundling registry and templates into the binary.
 - **Distribution:** single statically-linked binary. Zero runtime dependencies. Distributed via GitHub releases, cargo install, and optionally Nix flake.
 - **Offline capable:** all templates and tool definitions bundled into the binary at compile time. No network calls required for generation (network only needed for optional dependency installation).
-- **Test coverage:** the CLI itself should be tested, particularly the validation logic and template composition. Integration tests that scaffold a project and verify it builds for each supported tool template.
+- **Test coverage:** the CLI itself should be tested, particularly template composition. Integration tests that scaffold a project and verify it builds for each supported tool template.
 - **CI-friendly:** one-shot and config-file modes must work in non-interactive environments.
 
-## 11. Web UI (Future)
+## 10. Web UI (Future)
 
 A browser-based project configurator (similar to Spring Initializr or TanStack Builder) that provides a visual interface for the same scaffolding workflow. The web UI is a **thin visual layer** — it does not generate projects itself.
 
-### 11.1 Architecture
+### 10.1 Architecture
 
 The web UI reads the tool registry (the same TOML/YAML files used by the CLI) to render the configuration interface and validate selections. Its sole output is a CLI command string that the user copies and runs locally.
 
 No generation logic is duplicated. The Rust CLI is the single source of truth for project scaffolding.
 
-### 11.2 Requirements
+### 10.2 Requirements
 
 - Users configure their project visually: select roles, pick tools, set options.
-- The UI shows live validation (same hard/soft constraint rules as the CLI), derived from the tool registry metadata.
+- The UI shows live validation derived from the tool registry metadata.
 - Users can preview the generated file tree (directory names and structure, derived from which roles are selected — not actual file contents).
 - The output is a copyable CLI command: `cardano-init --name my-protocol --on-chain aiken --off-chain meshjs --nix`.
 - The tool registry is shared between CLI and web UI — adding a new tool definition makes it available in both without any web UI code changes.

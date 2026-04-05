@@ -44,8 +44,6 @@ cardano-init/
     │   └── env.jinja
     ├── _nix/                   # Optional Nix layer
     │   └── flake.nix.jinja
-    ├── _docker/                # Optional Docker layer
-    │   └── docker-compose.yml.jinja
     ├── aiken/
     │   └── on-chain/
     │       ├── manifest.toml
@@ -130,7 +128,6 @@ pub struct ToolDef {
     pub description: String,
     pub website: String,
     pub languages: Vec<String>,
-    pub system_deps: Vec<String>,
     pub roles: HashMap<Role, RoleConfig>,
 }
 
@@ -166,10 +163,6 @@ pub const DIR_ON_CHAIN: &str = "on-chain";
 pub const DIR_OFF_CHAIN: &str = "off-chain";
 pub const DIR_INFRA: &str = "infra";
 pub const DIR_TESTING: &str = "test";
-
-/// Justfile task names that each role template must expose.
-/// The top-level Justfile delegates to these.
-pub const TASKS: &[&str] = &["build", "test", "dev", "clean"];
 
 /// Standard environment variable names for infrastructure.
 /// Infra templates write these to .env; consumers read them.
@@ -260,7 +253,6 @@ pub struct Selection {
     pub assignments: Vec<RoleAssignment>,  // Infra may have multiple entries
     pub network: Network,
     pub nix: bool,
-    pub docker: bool,
 }
 
 pub enum Network {
@@ -321,7 +313,6 @@ pub struct TemplateContext {
 
     // Options
     pub nix: bool,
-    pub docker: bool,
 }
 
 pub struct RoleContext {
@@ -351,7 +342,7 @@ pub struct FileEntry {
 pub enum TemplateSource {
     Base(String),                   // From templates/_base/
     Role(String),                   // From templates/<tool>/<role>/
-    Optional(String),               // From templates/_nix/ or _docker/
+    Optional(String),               // From templates/_nix/
 }
 
 pub fn plan(selection: &Selection, registry: &Registry) -> FilePlan {
@@ -360,7 +351,6 @@ pub fn plan(selection: &Selection, registry: &Registry) -> FilePlan {
     // 1. Base layer: Justfile, README, .gitignore, .env, blueprint/.gitkeep
     // 2. For each role assignment: read manifest.toml, add all files
     // 3. If nix: add _nix/ files
-    // 4. If docker: add _docker/ files
 
     FilePlan { entries }
 }
@@ -424,7 +414,6 @@ $ cardano-init
 ? Project name: my-protocol
 ? Target network: preview
 ? Set up Nix for dependency management? No
-? Set up Docker for infrastructure services? No
 
   ┌─────────────────────────────────────────┐
   │  Summary                                │

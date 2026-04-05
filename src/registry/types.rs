@@ -99,7 +99,6 @@ pub struct ToolDef {
     pub description: String,
     pub website: String,
     pub languages: Vec<String>,
-    pub system_deps: Vec<String>,
     pub nix_packages: Vec<String>,
     pub roles: HashMap<Role, RoleConfig>,
 }

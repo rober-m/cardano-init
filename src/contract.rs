@@ -8,10 +8,6 @@ pub const DIR_OFF_CHAIN: &str = "off-chain";
 pub const DIR_INFRA: &str = "infra";
 pub const DIR_TESTING: &str = "test";
 
-/// Justfile task names that each role template must expose.
-/// The top-level Justfile delegates to these.
-pub const TASKS: &[&str] = &["build", "test", "dev", "clean"];
-
 /// Standard environment variable names for infrastructure.
 /// Infra templates write these to .env; consumers read them.
 pub const ENV_INDEXER_URL: &str = "INDEXER_URL";
