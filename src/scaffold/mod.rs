@@ -102,9 +102,10 @@ mod tests {
     #[test]
     fn scaffold_aiken_only() {
         let dir = tempfile::tempdir().unwrap();
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
 
         scaffold(&sel, &registry(), dir.path()).unwrap();
 
@@ -137,8 +138,14 @@ mod tests {
     fn scaffold_aiken_and_meshjs() {
         let dir = tempfile::tempdir().unwrap();
         let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-            RoleAssignment { role: Role::OffChain, tool_id: "meshjs".into() },
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "aiken".into(),
+            },
+            RoleAssignment {
+                role: Role::OffChain,
+                tool_id: "meshjs".into(),
+            },
         ]);
 
         scaffold(&sel, &registry(), dir.path()).unwrap();
@@ -160,14 +167,19 @@ mod tests {
 
     #[test]
     fn dry_run_returns_plan_without_writing() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
 
         let plan = dry_run(&sel, &registry()).unwrap();
 
         assert!(!plan.entries.is_empty());
-        let dests: Vec<&str> = plan.entries.iter().map(|e| e.dest.to_str().unwrap()).collect();
+        let dests: Vec<&str> = plan
+            .entries
+            .iter()
+            .map(|e| e.dest.to_str().unwrap())
+            .collect();
         assert!(dests.contains(&"Justfile"));
         assert!(dests.contains(&"on-chain/aiken.toml"));
     }

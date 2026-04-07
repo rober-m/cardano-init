@@ -4,7 +4,7 @@ pub mod output;
 
 use std::path::PathBuf;
 
-use clap::{CommandFactory, FromArgMatches, Parser};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 
 use crate::registry::loader::{Registry, RegistryError};
 use crate::registry::types::ToolDef;
@@ -17,7 +17,27 @@ use crate::scaffold::ScaffoldError;
 /// Scaffold a new Cardano protocol project.
 #[derive(Parser, Debug)]
 #[command(name = "cardano-init", version, about)]
-pub struct Args {
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
+    #[command(flatten)]
+    pub init: InitArgs,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Launch the web-based project builder on localhost
+    Web {
+        /// Port to listen on
+        #[arg(long, default_value_t = 3000)]
+        port: u16,
+    },
+}
+
+/// Arguments for the default init mode (interactive or one-shot).
+#[derive(clap::Args, Debug)]
+pub struct InitArgs {
     /// Project name (required in one-shot mode)
     #[arg(long)]
     pub name: Option<String>,
@@ -51,7 +71,7 @@ pub struct Args {
     pub dry_run: bool,
 }
 
-impl Args {
+impl InitArgs {
     /// Returns true if any one-shot flags were provided.
     fn has_oneshot_flags(&self) -> bool {
         self.on_chain.is_some()
@@ -76,6 +96,9 @@ pub enum CliError {
     #[error("{0}")]
     Scaffold(#[from] ScaffoldError),
 
+    #[error("{0}")]
+    Web(#[from] crate::web::WebError),
+
     #[error("directory '{}' already exists — refusing to overwrite", path)]
     DirectoryExists { path: String },
 
@@ -94,7 +117,9 @@ pub enum CliError {
     #[error("invalid project name '{}' — {}", name, reason)]
     InvalidProjectName { name: String, reason: String },
 
-    #[error("--name is required when using one-shot flags (--on-chain, --off-chain, etc.)\n\n  Run without flags for interactive mode, or provide --name:\n\n    cardano-init --name my-protocol --on-chain aiken")]
+    #[error(
+        "--name is required when using one-shot flags (--on-chain, --off-chain, etc.)\n\n  Run without flags for interactive mode, or provide --name:\n\n    cardano-init --name my-protocol --on-chain aiken"
+    )]
     NameRequired,
 
     #[error("user aborted")]
@@ -120,9 +145,22 @@ fn build_tool_catalog(registry: &Registry) -> String {
     }
 
     let _ = writeln!(out, "\nExamples:");
-    let _ = writeln!(out, "  cardano-init                                        # interactive mode");
-    let _ = writeln!(out, "  cardano-init --name my-app --on-chain aiken         # one-shot, single role");
-    let _ = writeln!(out, "  cardano-init --name my-app --on-chain aiken --off-chain meshjs --nix");
+    let _ = writeln!(
+        out,
+        "  cardano-init                                        # interactive mode"
+    );
+    let _ = writeln!(
+        out,
+        "  cardano-init --name my-app --on-chain aiken         # one-shot, single role"
+    );
+    let _ = writeln!(
+        out,
+        "  cardano-init --name my-app --on-chain aiken --off-chain meshjs --nix"
+    );
+    let _ = writeln!(
+        out,
+        "  cardano-init web                                    # web-based builder"
+    );
 
     out
 }
@@ -166,10 +204,21 @@ pub fn run() -> Result<(), CliError> {
 
     // Build clap command with dynamic after_help containing tool catalog
     let catalog = build_tool_catalog(&registry);
-    let cmd = Args::command().after_help(catalog);
+    let cmd = Cli::command().after_help(catalog);
     let matches = cmd.get_matches();
-    let args = Args::from_arg_matches(&matches).expect("clap already validated");
+    let cli = Cli::from_arg_matches(&matches).expect("clap already validated");
 
+    match cli.command {
+        Some(Command::Web { port }) => {
+            crate::web::serve(&registry, port)?;
+            Ok(())
+        }
+        None => run_init(cli.init, &registry),
+    }
+}
+
+/// Run the default init mode (interactive or one-shot).
+fn run_init(args: InitArgs, registry: &Registry) -> Result<(), CliError> {
     // If flags are provided without --name, error out
     if args.name.is_none() && args.has_oneshot_flags() {
         return Err(CliError::NameRequired);
@@ -185,10 +234,10 @@ pub fn run() -> Result<(), CliError> {
             args.testing.as_deref(),
             &args.network,
             args.nix,
-            &registry,
+            registry,
         )?
     } else {
-        interactive::run_interactive(&registry)?
+        interactive::run_interactive(registry)?
     };
 
     let root = PathBuf::from(&selection.project_name);
@@ -201,13 +250,13 @@ pub fn run() -> Result<(), CliError> {
     }
 
     if args.dry_run {
-        let plan = crate::scaffold::dry_run(&selection, &registry)?;
-        output::print_dry_run(&selection, &registry, &plan);
+        let plan = crate::scaffold::dry_run(&selection, registry)?;
+        output::print_dry_run(&selection, registry, &plan);
         return Ok(());
     }
 
-    output::print_summary(&selection, &registry);
-    crate::scaffold::scaffold(&selection, &registry, &root)?;
+    output::print_summary(&selection, registry);
+    crate::scaffold::scaffold(&selection, registry, &root)?;
     output::print_success(&selection);
 
     Ok(())

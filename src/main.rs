@@ -2,6 +2,7 @@ mod cli;
 mod contract;
 mod registry;
 mod scaffold;
+mod web;
 
 fn main() {
     if let Err(e) = cli::run() {

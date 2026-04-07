@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use super::renderer::RenderedFile;
 use super::ScaffoldError;
+use super::renderer::RenderedFile;
 
 /// Write all rendered files to disk under `root`.
 ///
@@ -74,12 +74,10 @@ mod tests {
     #[test]
     fn creates_directory_structure() {
         let dir = tempfile::tempdir().unwrap();
-        let files = vec![
-            RenderedFile {
-                dest: PathBuf::from("a/b/c/deep.txt"),
-                content: b"deep".to_vec(),
-            },
-        ];
+        let files = vec![RenderedFile {
+            dest: PathBuf::from("a/b/c/deep.txt"),
+            content: b"deep".to_vec(),
+        }];
 
         write(&files, dir.path()).unwrap();
 

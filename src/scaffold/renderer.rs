@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use minijinja::Environment;
 
-use super::planner::{FilePlan, TemplateSource};
 use super::context::TemplateContext;
+use super::planner::{FilePlan, TemplateSource};
 use super::{ScaffoldError, TemplateAssets};
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,10 @@ pub struct RenderedFile {
 /// - Files with `render == true` are processed through MiniJinja.
 /// - Files with `render == false` are passed through as-is.
 /// - `Inline` sources use their embedded bytes directly.
-pub fn render(plan: &FilePlan, context: &TemplateContext) -> Result<Vec<RenderedFile>, ScaffoldError> {
+pub fn render(
+    plan: &FilePlan,
+    context: &TemplateContext,
+) -> Result<Vec<RenderedFile>, ScaffoldError> {
     // Pre-load all template sources into owned strings so MiniJinja can borrow them.
     let mut sources: HashMap<String, String> = HashMap::new();
     for entry in &plan.entries {
@@ -40,9 +43,8 @@ pub fn render(plan: &FilePlan, context: &TemplateContext) -> Result<Vec<Rendered
             if sources.contains_key(&key) {
                 continue;
             }
-            let data = TemplateAssets::get(&key).ok_or_else(|| {
-                ScaffoldError::AssetNotFound { path: key.clone() }
-            })?;
+            let data = TemplateAssets::get(&key)
+                .ok_or_else(|| ScaffoldError::AssetNotFound { path: key.clone() })?;
             let text = std::str::from_utf8(&data.data)
                 .expect("renderable template must be valid UTF-8")
                 .to_string();
@@ -53,12 +55,11 @@ pub fn render(plan: &FilePlan, context: &TemplateContext) -> Result<Vec<Rendered
     // Build the MiniJinja environment with all templates loaded.
     let mut env = Environment::new();
     for (key, text) in &sources {
-        env.add_template(key, text).map_err(|e| {
-            ScaffoldError::Render {
+        env.add_template(key, text)
+            .map_err(|e| ScaffoldError::Render {
                 path: key.clone(),
                 source: e,
-            }
-        })?;
+            })?;
     }
 
     let ctx_value = minijinja::value::Value::from_serialize(context);
@@ -68,20 +69,24 @@ pub fn render(plan: &FilePlan, context: &TemplateContext) -> Result<Vec<Rendered
         let content = match &entry.source {
             TemplateSource::Inline(bytes) => bytes.clone(),
             source => {
-                let asset_key = source.asset_key().expect("non-Inline source must have asset_key");
+                let asset_key = source
+                    .asset_key()
+                    .expect("non-Inline source must have asset_key");
 
                 if !entry.render {
                     let data = TemplateAssets::get(&asset_key).ok_or_else(|| {
-                        ScaffoldError::AssetNotFound { path: asset_key.clone() }
+                        ScaffoldError::AssetNotFound {
+                            path: asset_key.clone(),
+                        }
                     })?;
                     data.data.to_vec()
                 } else {
-                    let tmpl = env.get_template(&asset_key).map_err(|e| {
-                        ScaffoldError::Render {
+                    let tmpl = env
+                        .get_template(&asset_key)
+                        .map_err(|e| ScaffoldError::Render {
                             path: asset_key.clone(),
                             source: e,
-                        }
-                    })?;
+                        })?;
                     tmpl.render(&ctx_value)
                         .map_err(|e| ScaffoldError::Render {
                             path: asset_key,
@@ -128,17 +133,19 @@ mod tests {
 
     #[test]
     fn static_file_passes_through() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let reg = registry();
         let plan = planner::plan(&sel, &reg).unwrap();
         let ctx = build_context(&sel, &reg).unwrap();
         let files = render(&plan, &ctx).unwrap();
 
-        let example = files.iter().find(|f| {
-            f.dest.to_str().unwrap().contains("validators/example.ak")
-        }).expect("example.ak should be in rendered files");
+        let example = files
+            .iter()
+            .find(|f| f.dest.to_str().unwrap().contains("validators/example.ak"))
+            .expect("example.ak should be in rendered files");
 
         let content = std::str::from_utf8(&example.content).unwrap();
         assert!(content.contains("validator example"));
@@ -147,17 +154,19 @@ mod tests {
 
     #[test]
     fn jinja_template_renders_context() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let reg = registry();
         let plan = planner::plan(&sel, &reg).unwrap();
         let ctx = build_context(&sel, &reg).unwrap();
         let files = render(&plan, &ctx).unwrap();
 
-        let justfile = files.iter().find(|f| {
-            f.dest == PathBuf::from("Justfile")
-        }).expect("Justfile should be in rendered files");
+        let justfile = files
+            .iter()
+            .find(|f| f.dest == PathBuf::from("Justfile"))
+            .expect("Justfile should be in rendered files");
 
         let content = std::str::from_utf8(&justfile.content).unwrap();
         assert!(content.contains("test-project"));
@@ -167,35 +176,39 @@ mod tests {
 
     #[test]
     fn inline_source_produces_empty_content() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let reg = registry();
         let plan = planner::plan(&sel, &reg).unwrap();
         let ctx = build_context(&sel, &reg).unwrap();
         let files = render(&plan, &ctx).unwrap();
 
-        let gitkeep = files.iter().find(|f| {
-            f.dest == PathBuf::from("blueprint/.gitkeep")
-        }).expect("blueprint/.gitkeep should be in rendered files");
+        let gitkeep = files
+            .iter()
+            .find(|f| f.dest == PathBuf::from("blueprint/.gitkeep"))
+            .expect("blueprint/.gitkeep should be in rendered files");
 
         assert!(gitkeep.content.is_empty());
     }
 
     #[test]
     fn nix_flake_renders_with_packages() {
-        let mut sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let mut sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         sel.nix = true;
         let reg = registry();
         let plan = planner::plan(&sel, &reg).unwrap();
         let ctx = build_context(&sel, &reg).unwrap();
         let files = render(&plan, &ctx).unwrap();
 
-        let flake = files.iter().find(|f| {
-            f.dest == PathBuf::from("flake.nix")
-        }).expect("flake.nix should be in rendered files");
+        let flake = files
+            .iter()
+            .find(|f| f.dest == PathBuf::from("flake.nix"))
+            .expect("flake.nix should be in rendered files");
 
         let content = std::str::from_utf8(&flake.content).unwrap();
         assert!(content.contains("aiken"));
@@ -206,8 +219,14 @@ mod tests {
     #[test]
     fn full_plan_renders_without_error() {
         let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-            RoleAssignment { role: Role::OffChain, tool_id: "meshjs".into() },
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "aiken".into(),
+            },
+            RoleAssignment {
+                role: Role::OffChain,
+                tool_id: "meshjs".into(),
+            },
         ]);
         let reg = registry();
         let plan = planner::plan(&sel, &reg).unwrap();

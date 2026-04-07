@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use super::ScaffoldError;
 use crate::contract;
 use crate::registry::loader::Registry;
 use crate::registry::types::{Role, Selection};
-use super::ScaffoldError;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,11 +59,12 @@ pub fn build_context(
     let mut nix_packages = Vec::new();
 
     for assignment in &selection.assignments {
-        let tool = registry.get(&assignment.tool_id).ok_or_else(|| {
-            ScaffoldError::ToolNotFound {
-                tool_id: assignment.tool_id.clone(),
-            }
-        })?;
+        let tool =
+            registry
+                .get(&assignment.tool_id)
+                .ok_or_else(|| ScaffoldError::ToolNotFound {
+                    tool_id: assignment.tool_id.clone(),
+                })?;
 
         if !tool.roles.contains_key(&assignment.role) {
             return Err(ScaffoldError::RoleMismatch {
@@ -149,9 +150,18 @@ mod tests {
     #[test]
     fn context_with_all_roles() {
         let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-            RoleAssignment { role: Role::OffChain, tool_id: "meshjs".into() },
-            RoleAssignment { role: Role::Testing, tool_id: "scalus".into() },
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "aiken".into(),
+            },
+            RoleAssignment {
+                role: Role::OffChain,
+                tool_id: "meshjs".into(),
+            },
+            RoleAssignment {
+                role: Role::Testing,
+                tool_id: "scalus".into(),
+            },
         ]);
         let ctx = build_context(&sel, &registry()).unwrap();
 
@@ -167,9 +177,10 @@ mod tests {
 
     #[test]
     fn context_on_chain_only() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let ctx = build_context(&sel, &registry()).unwrap();
 
         assert!(ctx.has_on_chain);
@@ -183,9 +194,10 @@ mod tests {
 
     #[test]
     fn has_flags_match_assignments() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OffChain, tool_id: "meshjs".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OffChain,
+            tool_id: "meshjs".into(),
+        }]);
         let ctx = build_context(&sel, &registry()).unwrap();
 
         assert!(!ctx.has_on_chain);
@@ -196,9 +208,10 @@ mod tests {
 
     #[test]
     fn contract_constants_propagated() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let ctx = build_context(&sel, &registry()).unwrap();
 
         assert_eq!(ctx.blueprint_path, "blueprint/plutus.json");
@@ -209,9 +222,18 @@ mod tests {
     #[test]
     fn role_dirs_match_contract() {
         let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-            RoleAssignment { role: Role::OffChain, tool_id: "meshjs".into() },
-            RoleAssignment { role: Role::Testing, tool_id: "scalus".into() },
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "aiken".into(),
+            },
+            RoleAssignment {
+                role: Role::OffChain,
+                tool_id: "meshjs".into(),
+            },
+            RoleAssignment {
+                role: Role::Testing,
+                tool_id: "scalus".into(),
+            },
         ]);
         let ctx = build_context(&sel, &registry()).unwrap();
 
@@ -222,27 +244,30 @@ mod tests {
 
     #[test]
     fn unknown_tool_errors() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "nonexistent".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "nonexistent".into(),
+        }]);
         let result = build_context(&sel, &registry());
         assert!(matches!(result, Err(ScaffoldError::ToolNotFound { .. })));
     }
 
     #[test]
     fn role_mismatch_errors() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::Testing, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::Testing,
+            tool_id: "aiken".into(),
+        }]);
         let result = build_context(&sel, &registry());
         assert!(matches!(result, Err(ScaffoldError::RoleMismatch { .. })));
     }
 
     #[test]
     fn nix_packages_collected() {
-        let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "aiken".into() },
-        ]);
+        let sel = selection(vec![RoleAssignment {
+            role: Role::OnChain,
+            tool_id: "aiken".into(),
+        }]);
         let ctx = build_context(&sel, &registry()).unwrap();
         assert!(ctx.nix_packages.contains(&"aiken".to_string()));
     }
@@ -251,18 +276,18 @@ mod tests {
     fn nix_packages_deduped_across_tools() {
         // Scalus on-chain + scalus testing — same tool, same nix_packages
         let sel = selection(vec![
-            RoleAssignment { role: Role::OnChain, tool_id: "scalus".into() },
-            RoleAssignment { role: Role::Testing, tool_id: "scalus".into() },
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "scalus".into(),
+            },
+            RoleAssignment {
+                role: Role::Testing,
+                tool_id: "scalus".into(),
+            },
         ]);
         let ctx = build_context(&sel, &registry()).unwrap();
         // sbt and jdk should appear only once each
-        assert_eq!(
-            ctx.nix_packages.iter().filter(|p| *p == "sbt").count(),
-            1
-        );
-        assert_eq!(
-            ctx.nix_packages.iter().filter(|p| *p == "jdk").count(),
-            1
-        );
+        assert_eq!(ctx.nix_packages.iter().filter(|p| *p == "sbt").count(), 1);
+        assert_eq!(ctx.nix_packages.iter().filter(|p| *p == "jdk").count(), 1);
     }
 }

@@ -37,10 +37,7 @@ pub fn print_summary(selection: &Selection, registry: &Registry) {
     println!();
     println!("  {}", style("Summary").bold().underlined());
     println!();
-    println!(
-        "  Project:  {}",
-        style(&selection.project_name).cyan()
-    );
+    println!("  Project:  {}", style(&selection.project_name).cyan());
 
     for assignment in &selection.assignments {
         let role_label = match assignment.role {
@@ -64,10 +61,7 @@ pub fn print_summary(selection: &Selection, registry: &Registry) {
         );
     }
 
-    println!(
-        "  Network:  {}",
-        style(&selection.network).cyan()
-    );
+    println!("  Network:  {}", style(&selection.network).cyan());
 
     if selection.nix {
         println!("  Nix:      {}", style("yes").green());
@@ -79,10 +73,7 @@ pub fn print_summary(selection: &Selection, registry: &Registry) {
 pub fn print_dry_run(selection: &Selection, registry: &Registry, plan: &FilePlan) {
     print_summary(selection, registry);
 
-    println!(
-        "  {}",
-        style(format!("{}/", selection.project_name)).bold()
-    );
+    println!("  {}", style(format!("{}/", selection.project_name)).bold());
 
     let paths: Vec<Vec<&str>> = plan
         .entries
@@ -133,13 +124,14 @@ fn print_tree(paths: &[Vec<&str>], depth: usize, _start: usize, indent: &mut Str
         let connector = if is_last { "└── " } else { "├── " };
 
         // Check if this is a directory (has children deeper than depth+1)
-        let is_dir = indices
-            .iter()
-            .any(|&i| paths[i].len() > depth + 1);
+        let is_dir = indices.iter().any(|&i| paths[i].len() > depth + 1);
 
         if is_dir {
             println!(
-                "  {}{}{}", indent, style(connector).dim(), style(format!("{name}/")).dim()
+                "  {}{}{}",
+                indent,
+                style(connector).dim(),
+                style(format!("{name}/")).dim()
             );
         } else {
             println!("  {}{}{}", indent, style(connector).dim(), name);
@@ -204,7 +196,11 @@ pub fn first_sentence(desc: &str) -> &str {
         desc
     } else {
         // No sentence boundary — take first 80 chars
-        let end = desc.char_indices().nth(80).map(|(i, _)| i).unwrap_or(desc.len());
+        let end = desc
+            .char_indices()
+            .nth(80)
+            .map(|(i, _)| i)
+            .unwrap_or(desc.len());
         &desc[..end]
     }
 }
@@ -215,7 +211,10 @@ mod tests {
 
     #[test]
     fn first_sentence_with_period_space() {
-        assert_eq!(first_sentence("Hello world. More text here."), "Hello world.");
+        assert_eq!(
+            first_sentence("Hello world. More text here."),
+            "Hello world."
+        );
     }
 
     #[test]

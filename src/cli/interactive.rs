@@ -1,11 +1,11 @@
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input, MultiSelect, Select};
 
+use super::CliError;
+use super::oneshot::validate_project_name;
+use super::output;
 use crate::registry::loader::Registry;
 use crate::registry::types::{Network, Role, RoleAssignment, Selection};
-use super::output;
-use super::oneshot::validate_project_name;
-use super::CliError;
 
 /// Run the full interactive wizard, returning a validated Selection.
 pub fn run_interactive(registry: &Registry) -> Result<Selection, CliError> {
