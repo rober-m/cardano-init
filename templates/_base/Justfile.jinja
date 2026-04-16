@@ -38,6 +38,12 @@ dev-infra:
 test-integration:
     just -f {{ testing.dir }}/Justfile test
 {%- endif %}
+{%- if has_formal_methods %}
+
+# --- Formal methods ({{ formal_methods.tool_name }}) ---
+verify:
+    just -f {{ formal_methods.dir }}/Justfile test
+{%- endif %}
 
 # --- Aggregate tasks ---
 build:
@@ -49,6 +55,7 @@ test:
 {%- if has_on_chain %} test-on-chain{% endif %}
 {%- if has_off_chain %} test-off-chain{% endif %}
 {%- if has_testing %} test-integration{% endif %}
+{%- if has_formal_methods %} verify{% endif %}
     @echo "All tests passed."
 
 clean:
@@ -60,6 +67,9 @@ clean:
 {%- endif %}
 {%- if has_testing %}
     just -f {{ testing.dir }}/Justfile clean
+{%- endif %}
+{%- if has_formal_methods %}
+    just -f {{ formal_methods.dir }}/Justfile clean
 {%- endif %}
     rm -f {{ blueprint_path }}
     @echo "Clean complete."

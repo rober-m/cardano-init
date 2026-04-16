@@ -12,7 +12,7 @@ pub fn print_welcome() {
         style("Welcome to cardano-init!").bold()
     );
     println!();
-    println!("  A Cardano protocol typically has up to four components:");
+    println!("  A Cardano protocol typically has up to five components:");
     println!(
         "  {} Smart contract logic (validators) that runs on the ledger",
         style("On-chain:").cyan().bold()
@@ -45,6 +45,7 @@ pub fn print_summary(selection: &Selection, registry: &Registry) {
             Role::OffChain => "Off-chain",
             Role::Infrastructure => "Infra",
             Role::Testing => "Testing",
+            Role::FormalMethods => "Formal methods",
         };
 
         let tool_info = if let Some(tool) = registry.get(&assignment.tool_id) {
@@ -169,6 +170,7 @@ pub fn print_success(selection: &Selection) {
             Role::OffChain => "off-chain",
             Role::Infrastructure => "infrastructure",
             Role::Testing => "testing",
+            Role::FormalMethods => "formal-methods",
         };
         println!(
             "  {} Scaffolded {} ({})",

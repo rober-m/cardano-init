@@ -54,10 +54,11 @@ pub fn run_interactive(registry: &Registry) -> Result<Selection, CliError> {
 
 fn select_roles(theme: &ColorfulTheme) -> Result<Vec<Role>, CliError> {
     let descriptions = [
-        "On-chain       — Smart contract logic (validators) on the ledger",
-        "Off-chain      — Code that builds and submits transactions",
-        "Infrastructure — Indexers and services that read chain data",
-        "Testing        — Frameworks for testing contracts locally",
+        "On-chain        — Smart contract logic (validators) on the ledger",
+        "Off-chain       — Code that builds and submits transactions",
+        "Infrastructure  — Indexers and services that read chain data",
+        "Testing         — Frameworks for testing contracts locally",
+        "Formal methods  — Specification and automated verification tools",
     ];
 
     let selections = MultiSelect::with_theme(theme)

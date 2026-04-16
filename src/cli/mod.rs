@@ -58,6 +58,10 @@ pub struct InitArgs {
     #[arg(long, value_name = "TOOL_ID")]
     pub testing: Option<String>,
 
+    /// Formal methods tool (e.g., blaster)
+    #[arg(long, value_name = "TOOL_ID")]
+    pub formal_methods: Option<String>,
+
     /// Target network
     #[arg(long, default_value = "preview")]
     pub network: String,
@@ -78,6 +82,7 @@ impl InitArgs {
             || self.off_chain.is_some()
             || !self.infra.is_empty()
             || self.testing.is_some()
+            || self.formal_methods.is_some()
             || self.nix
             || self.dry_run
             || self.network != "preview"
@@ -232,6 +237,7 @@ fn run_init(args: InitArgs, registry: &Registry) -> Result<(), CliError> {
             args.off_chain.as_deref(),
             &args.infra,
             args.testing.as_deref(),
+            args.formal_methods.as_deref(),
             &args.network,
             args.nix,
             registry,

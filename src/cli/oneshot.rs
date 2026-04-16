@@ -11,6 +11,7 @@ pub fn build_selection(
     off_chain: Option<&str>,
     infra: &[String],
     testing: Option<&str>,
+    formal_methods: Option<&str>,
     network: &str,
     nix: bool,
     registry: &Registry,
@@ -47,6 +48,14 @@ pub fn build_selection(
         validate_tool_for_role(tool_id, Role::Testing, registry)?;
         assignments.push(RoleAssignment {
             role: Role::Testing,
+            tool_id: tool_id.to_string(),
+        });
+    }
+
+    if let Some(tool_id) = formal_methods {
+        validate_tool_for_role(tool_id, Role::FormalMethods, registry)?;
+        assignments.push(RoleAssignment {
+            role: Role::FormalMethods,
             tool_id: tool_id.to_string(),
         });
     }
@@ -128,6 +137,7 @@ mod tests {
             None,
             &[],
             None,
+            None,
             "preview",
             false,
             &registry(),
@@ -148,6 +158,7 @@ mod tests {
             Some("meshjs"),
             &[],
             Some("scalus"),
+            None,
             "preprod",
             true,
             &registry(),
@@ -160,12 +171,33 @@ mod tests {
     }
 
     #[test]
+    fn valid_formal_methods() {
+        let sel = build_selection(
+            "my-project",
+            None,
+            None,
+            &[],
+            None,
+            Some("blaster"),
+            "preview",
+            false,
+            &registry(),
+        )
+        .unwrap();
+
+        assert_eq!(sel.assignments.len(), 1);
+        assert_eq!(sel.assignments[0].tool_id, "blaster");
+        assert_eq!(sel.assignments[0].role, Role::FormalMethods);
+    }
+
+    #[test]
     fn unknown_tool_errors() {
         let result = build_selection(
             "test",
             Some("nonexistent"),
             None,
             &[],
+            None,
             None,
             "preview",
             false,
@@ -183,6 +215,7 @@ mod tests {
             Some("aiken"),
             &[],
             None,
+            None,
             "preview",
             false,
             &registry(),
@@ -192,7 +225,8 @@ mod tests {
 
     #[test]
     fn no_roles_errors() {
-        let result = build_selection("test", None, None, &[], None, "preview", false, &registry());
+        let result =
+            build_selection("test", None, None, &[], None, None, "preview", false, &registry());
         assert!(matches!(result, Err(CliError::NoRolesSelected)));
     }
 
@@ -203,6 +237,7 @@ mod tests {
             Some("aiken"),
             None,
             &[],
+            None,
             None,
             "badnet",
             false,
@@ -219,6 +254,7 @@ mod tests {
             None,
             &[],
             None,
+            None,
             "preview",
             false,
             &registry(),
@@ -234,6 +270,7 @@ mod tests {
             None,
             &[],
             None,
+            None,
             "preview",
             false,
             &registry(),
@@ -248,6 +285,7 @@ mod tests {
             Some("aiken"),
             None,
             &[],
+            None,
             None,
             "preview",
             false,

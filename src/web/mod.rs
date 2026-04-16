@@ -239,6 +239,14 @@ fn build_plan_json(query: &HashMap<String, String>, registry: &Registry) -> Resu
             tool_id: tool_id.clone(),
         });
     }
+    if let Some(tool_id) = query.get("formal_methods")
+        && !tool_id.is_empty()
+    {
+        assignments.push(RoleAssignment {
+            role: Role::FormalMethods,
+            tool_id: tool_id.clone(),
+        });
+    }
 
     if assignments.is_empty() {
         return Ok(serde_json::to_string(&PlanResponse { files: vec![] }).unwrap());

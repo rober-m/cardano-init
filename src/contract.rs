@@ -7,6 +7,7 @@ pub const DIR_ON_CHAIN: &str = "on-chain";
 pub const DIR_OFF_CHAIN: &str = "off-chain";
 pub const DIR_INFRA: &str = "infra";
 pub const DIR_TESTING: &str = "test";
+pub const DIR_FORMAL_METHODS: &str = "formal-methods";
 
 /// Standard environment variable names for infrastructure.
 /// Infra templates write these to .env; consumers read them.

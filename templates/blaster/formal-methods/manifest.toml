@@ -1,0 +1,12 @@
+[manifest]
+summary = "Blaster formal-methods project with an example specification"
+
+[[files]]
+source = "Justfile.jinja"
+dest = "Justfile"
+render = true
+
+[[files]]
+source = "spec/example.spec"
+dest = "spec/example.spec"
+render = false

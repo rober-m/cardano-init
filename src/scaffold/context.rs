@@ -30,11 +30,13 @@ pub struct TemplateContext {
     pub has_off_chain: bool,
     pub has_infra: bool,
     pub has_testing: bool,
+    pub has_formal_methods: bool,
 
     pub on_chain: Option<RoleContext>,
     pub off_chain: Option<RoleContext>,
     pub infra_tools: Vec<RoleContext>,
     pub testing: Option<RoleContext>,
+    pub formal_methods: Option<RoleContext>,
 
     pub blueprint_path: String,
     pub env_vars: HashMap<String, String>,
@@ -56,6 +58,7 @@ pub fn build_context(
     let mut off_chain = None;
     let mut infra_tools = Vec::new();
     let mut testing = None;
+    let mut formal_methods = None;
     let mut nix_packages = Vec::new();
 
     for assignment in &selection.assignments {
@@ -91,6 +94,7 @@ pub fn build_context(
             Role::OffChain => off_chain = Some(rc),
             Role::Infrastructure => infra_tools.push(rc),
             Role::Testing => testing = Some(rc),
+            Role::FormalMethods => formal_methods = Some(rc),
         }
     }
 
@@ -111,11 +115,13 @@ pub fn build_context(
         has_off_chain: off_chain.is_some(),
         has_infra: !infra_tools.is_empty(),
         has_testing: testing.is_some(),
+        has_formal_methods: formal_methods.is_some(),
 
         on_chain,
         off_chain,
         infra_tools,
         testing,
+        formal_methods,
 
         blueprint_path: contract::BLUEPRINT_PATH.to_string(),
         env_vars,
@@ -187,8 +193,10 @@ mod tests {
         assert!(!ctx.has_off_chain);
         assert!(!ctx.has_infra);
         assert!(!ctx.has_testing);
+        assert!(!ctx.has_formal_methods);
         assert!(ctx.off_chain.is_none());
         assert!(ctx.testing.is_none());
+        assert!(ctx.formal_methods.is_none());
         assert!(ctx.infra_tools.is_empty());
     }
 
@@ -204,6 +212,27 @@ mod tests {
         assert!(ctx.has_off_chain);
         assert!(!ctx.has_infra);
         assert!(!ctx.has_testing);
+        assert!(!ctx.has_formal_methods);
+    }
+
+    #[test]
+    fn context_with_formal_methods() {
+        let sel = selection(vec![
+            RoleAssignment {
+                role: Role::OnChain,
+                tool_id: "aiken".into(),
+            },
+            RoleAssignment {
+                role: Role::FormalMethods,
+                tool_id: "blaster".into(),
+            },
+        ]);
+        let ctx = build_context(&sel, &registry()).unwrap();
+
+        assert!(ctx.has_on_chain);
+        assert!(ctx.has_formal_methods);
+        assert_eq!(ctx.formal_methods.as_ref().unwrap().tool_id, "blaster");
+        assert_eq!(ctx.formal_methods.as_ref().unwrap().dir, "formal-methods");
     }
 
     #[test]

@@ -1,0 +1,14 @@
+[tool]
+id = "blaster"
+name = "Blaster"
+description = """\
+A placeholder formal-methods tool for Cardano protocol projects. \
+Blaster provides a specification language and automated verification \
+engine for proving properties of on-chain validators."""
+website = "https://example.com/blaster"
+languages = ["blaster-spec"]
+system_deps = []
+nix_packages = []
+
+[roles.formal-methods]
+template = "blaster/formal-methods"

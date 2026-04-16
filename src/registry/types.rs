@@ -14,6 +14,7 @@ pub enum Role {
     OffChain,
     Infrastructure,
     Testing,
+    FormalMethods,
 }
 
 impl Role {
@@ -23,6 +24,7 @@ impl Role {
         Role::OffChain,
         Role::Infrastructure,
         Role::Testing,
+        Role::FormalMethods,
     ];
 
     /// Parse from the kebab-case string used in TOML registry files.
@@ -32,6 +34,7 @@ impl Role {
             "off-chain" => Ok(Role::OffChain),
             "infrastructure" => Ok(Role::Infrastructure),
             "testing" => Ok(Role::Testing),
+            "formal-methods" => Ok(Role::FormalMethods),
             _ => Err(UnknownRoleError(s.to_string())),
         }
     }
@@ -43,6 +46,7 @@ impl Role {
             Role::OffChain => "off-chain",
             Role::Infrastructure => "infrastructure",
             Role::Testing => "testing",
+            Role::FormalMethods => "formal-methods",
         }
     }
 
@@ -53,6 +57,7 @@ impl Role {
             Role::OffChain => contract::DIR_OFF_CHAIN,
             Role::Infrastructure => contract::DIR_INFRA,
             Role::Testing => contract::DIR_TESTING,
+            Role::FormalMethods => contract::DIR_FORMAL_METHODS,
         }
     }
 }
@@ -65,6 +70,7 @@ impl fmt::Display for Role {
             Role::OffChain => write!(f, "Off-chain"),
             Role::Infrastructure => write!(f, "Infrastructure"),
             Role::Testing => write!(f, "Testing"),
+            Role::FormalMethods => write!(f, "Formal methods"),
         }
     }
 }
@@ -184,6 +190,10 @@ mod tests {
             Role::Infrastructure
         );
         assert_eq!(Role::from_kebab("testing").unwrap(), Role::Testing);
+        assert_eq!(
+            Role::from_kebab("formal-methods").unwrap(),
+            Role::FormalMethods
+        );
     }
 
     #[test]
@@ -208,6 +218,7 @@ mod tests {
         assert_eq!(Role::OffChain.dir(), "off-chain");
         assert_eq!(Role::Infrastructure.dir(), "infra");
         assert_eq!(Role::Testing.dir(), "test");
+        assert_eq!(Role::FormalMethods.dir(), "formal-methods");
     }
 
     #[test]
@@ -216,11 +227,12 @@ mod tests {
         assert_eq!(Role::OffChain.to_string(), "Off-chain");
         assert_eq!(Role::Infrastructure.to_string(), "Infrastructure");
         assert_eq!(Role::Testing.to_string(), "Testing");
+        assert_eq!(Role::FormalMethods.to_string(), "Formal methods");
     }
 
     #[test]
-    fn role_all_has_four_variants() {
-        assert_eq!(Role::ALL.len(), 4);
+    fn role_all_has_five_variants() {
+        assert_eq!(Role::ALL.len(), 5);
     }
 
     #[test]

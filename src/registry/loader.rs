@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn load_tool_count() {
-        assert_eq!(registry().all_tools().len(), 3);
+        assert_eq!(registry().all_tools().len(), 4);
     }
 
     #[test]

@@ -415,20 +415,23 @@
     'off-chain': 'meshjs',
     'infrastructure': [],
     'testing': null,
+    'formal-methods': null,
   };
 
-  const ROLE_ORDER = ['on-chain', 'off-chain', 'infrastructure', 'testing'];
+  const ROLE_ORDER = ['on-chain', 'off-chain', 'infrastructure', 'testing', 'formal-methods'];
   const ROLE_LABELS = {
     'on-chain': 'On-chain',
     'off-chain': 'Off-chain',
     'infrastructure': 'Infrastructure',
     'testing': 'Testing',
+    'formal-methods': 'Formal methods',
   };
   const ROLE_HINTS = {
     'on-chain': 'Smart contract logic',
     'off-chain': 'Transaction building',
     'infrastructure': 'Indexers & services (multi-select)',
     'testing': 'Local testing',
+    'formal-methods': 'Specification & verification',
   };
 
   fetch('/api/registry')
@@ -517,7 +520,8 @@
 
   function hasSelection() {
     return selection['on-chain'] || selection['off-chain'] ||
-      selection['infrastructure'].length > 0 || selection['testing'];
+      selection['infrastructure'].length > 0 || selection['testing'] ||
+      selection['formal-methods'];
   }
 
   function updateCommand() {
@@ -540,6 +544,7 @@
     if (selection['off-chain']) parts.push('--off-chain', selection['off-chain']);
     for (const infra of selection['infrastructure']) parts.push('--infra', infra);
     if (selection['testing']) parts.push('--testing', selection['testing']);
+    if (selection['formal-methods']) parts.push('--formal-methods', selection['formal-methods']);
     if (network !== 'preview') parts.push('--network', network);
     if (nix) parts.push('--nix');
 
@@ -570,6 +575,7 @@
       params.set('infra', selection['infrastructure'].join(','));
     }
     if (selection['testing']) params.set('testing', selection['testing']);
+    if (selection['formal-methods']) params.set('formal_methods', selection['formal-methods']);
     params.set('nix', document.getElementById('nix').checked ? 'true' : 'false');
     params.set('network', document.getElementById('network').value);
 
