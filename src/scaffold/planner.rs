@@ -75,7 +75,6 @@ struct ManifestMeta {
 struct ManifestFile {
     source: String,
     dest: String,
-    render: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +168,7 @@ pub fn plan(selection: &Selection, registry: &Registry) -> Result<FilePlan, Scaf
             entries.push(FileEntry {
                 dest: dest_prefix.join(&file.dest),
                 source: TemplateSource::Role(format!("{}/{}", template_path, file.source)),
-                render: file.render,
+                render: file.source.ends_with(".jinja"),
             });
         }
     }
