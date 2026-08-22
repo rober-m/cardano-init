@@ -2529,16 +2529,6 @@ export * from "./contract.js";
 import { getBundledValidators, hasBundledBlueprint } from "./contract.js";
 import { createGiftCardContractFromEnv, loadEnv, topupOnDevnet } from "./node.js";
 
-/** A one-line, human description of where transactions will go. */
-function describeProvider(provider: {
-  kind: "yaci" | "blockfrost";
-  url?: string;
-}): string {
-  return provider.kind === "yaci"
-    ? `local devnet at ${provider.url} (Yaci)`
-    : "Blockfrost";
-}
-
 // Runnable entry point for `just dev` / `npm start` and the `create` / `redeem`
 // commands. It submits real transactions when the blueprint is bundled and the
 // required environment variables are present, and degrades to guidance
@@ -2566,10 +2556,7 @@ function printStatus(): void {
 
   const env = loadEnv();
   if (env.ok) {
-    console.log(
-      `Environment ready (network: ${env.env.network}, ` +
-        `provider: ${describeProvider(env.env.provider)}).`,
-    );
+    console.log("Environment ready.");
     console.log("Run a transaction:");
     console.log("  npx tsx src/cli.ts create <tokenName> <lovelace>");
     console.log("  npx tsx src/cli.ts redeem <createTxHash>");

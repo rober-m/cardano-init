@@ -4,15 +4,7 @@ import {
   loadEnv,
   topupOnDevnet,
   walletAddress,
-  type ProviderConfig,
 } from "./node.js";
-
-/** A one-line, human description of where transactions will go. */
-function describeProvider(provider: ProviderConfig): string {
-  return provider.kind === "yaci"
-    ? `local devnet at ${provider.baseUrl} (Yaci)`
-    : "Blockfrost";
-}
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -43,10 +35,7 @@ function printStatus(): void {
 
   const env = loadEnv();
   if (env.ok) {
-    console.log(
-      `Environment ready (network: ${env.env.network}, ` +
-        `provider: ${describeProvider(env.env.provider)}).`,
-    );
+    console.log("Environment ready.");
     console.log("Run a transaction:");
     console.log("  npx tsx src/cli.ts create <tokenName> <lovelace>");
     console.log("  npx tsx src/cli.ts redeem <redeemAddress>");
