@@ -27,8 +27,11 @@ git checkout -b chore/release-vX.Y.Z
 cargo update -p cardano-init
 
 # 3. Turn the [Unreleased] section into [vX.Y.Z] and refresh links.
-#    (git-cliff via nix; drop the `nix run nixpkgs#` prefix if it's installed.)
-nix run nixpkgs#git-cliff -- --config cliff.toml --tag vX.Y.Z --output CHANGELOG.md
+#    A GitHub token MUST be in the environment or every "by @handle" is dropped
+#    (see the attribution note below). git-cliff via nix; drop the
+#    `nix run nixpkgs#` prefix if it's installed.
+GITHUB_TOKEN="$(gh auth token)" \
+  nix run nixpkgs#git-cliff -- --config cliff.toml --tag vX.Y.Z --output CHANGELOG.md
 
 # 4. Review CHANGELOG.md, then commit and open a PR.
 git add Cargo.toml Cargo.lock CHANGELOG.md
@@ -57,3 +60,16 @@ git push origin vX.Y.Z
   the first matching parser (`^feat`) wins.
 - Contributor `@handles` are resolved locally during generation, so regenerate
   the changelog locally (not in CI) to keep attribution.
+- **Attribution needs a GitHub token.** The `by @handle` suffix comes from
+  git-cliff's GitHub API integration, which is *silently skipped* when no token
+  is present — you get a valid-looking changelog with every `by @…` missing, and
+  no error. Always run generation with a token in the environment, e.g.
+  `GITHUB_TOKEN="$(gh auth token)"` as shown in step 3. `cliff.toml` pins the
+  repo (`[remote.github]`) so resolution no longer depends on the branch's
+  upstream being set, but it still cannot invent the token. A handful of legacy
+  commits authored with a non-GitHub email (e.g. `…@<host>.local`) have no handle
+  to resolve and stay unattributed — that is expected, not a token problem.
+  If you spot missing `@handles` in a fresh section, regenerate with the token
+  before opening the release PR; if a release already published without them,
+  fix `CHANGELOG.md` in a follow-up PR and `gh release edit <tag> --notes-file`
+  to correct the published body.

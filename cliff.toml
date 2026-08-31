@@ -43,6 +43,16 @@ footer = """
 """
 trim = true
 
+# Pin the GitHub repo so `commit.remote.username` (the "by @handle" suffix) resolves
+# from the API regardless of the current branch's upstream. Without this, git-cliff
+# infers the repo from `branch.<name>.remote`, which is unset on a fresh release branch
+# that hasn't been pushed yet — the API call is then silently skipped and every
+# "by @handle" disappears. Resolution still requires a token in the environment
+# (GITHUB_TOKEN / GH_TOKEN); see RELEASING.md.
+[remote.github]
+owner = "input-output-hk"
+repo = "cardano-init"
+
 [git]
 conventional_commits = true
 filter_unconventional = true
