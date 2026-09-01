@@ -1,0 +1,34 @@
+[manifest]
+summary = "Dingo single-node devnet — Docker Compose starts a fresh chain, exposes its Blockfrost-compatible API, and includes a funded-address round-trip test"
+
+[[files]]
+source = "Justfile.jinja"
+dest = "Justfile"
+
+[[files]]
+source = "README.md"
+dest = "README.md"
+
+[[files]]
+source = "docker-compose.yml.jinja"
+dest = "docker-compose.yml"
+
+[[files]]
+source = "scripts/start-dingo.sh"
+dest = "scripts/start-dingo.sh"
+
+[[files]]
+source = "scripts/compose.sh"
+dest = "scripts/compose.sh"
+
+[[files]]
+source = "scripts/set-env.sh"
+dest = "scripts/set-env.sh"
+
+[[files]]
+source = "scripts/fund.sh"
+dest = "scripts/fund.sh"
+
+[[files]]
+source = "scripts/devnet-test.sh"
+dest = "scripts/devnet-test.sh"

@@ -32,6 +32,17 @@ Every on-chain and off-chain template ships the **same worked example — a gift
 
 **Compatibility checks.** Not every off-chain tool can talk to every provider and each devnet/infra provider serves some set of them. `cardano-init` knows these and **stops before generating** a project whose off-chain tool can't reach a chain from its selected providers. The error lists the providers that *would* work; pass `--ignore-warning` to scaffold the combination anyway. Interactive mode simply hides the incompatible options.
 
+### Devnet providers
+
+| Provider | Flag | Endpoint |
+|----------|------|----------|
+| Yaci DevKit | `--devnet yaci` | Blockfrost-compatible API and Yaci admin faucet |
+| Dingo | `--devnet dingo` | Blockfrost-compatible API and local faucet command |
+
+Dingo's generated `just test` starts a single-node Docker devnet, submits a
+faucet transaction, verifies it through the Blockfrost API, and tears down.
+`just dev` writes `INDEXER_URL` and `INDEXER_PORT` to the project `.env`.
+
 ## For coding agents
 
 `cardano-init` is built to be driven by LLMs, end to end:

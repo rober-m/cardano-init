@@ -183,6 +183,9 @@ pub struct CompatConfig {
 pub struct RoleConfig {
     /// Path under `templates/` for this tool-role combination.
     pub template: String,
+    /// Optional role-specific system dependencies. When absent, the tool's
+    /// top-level `system_deps` apply.
+    pub system_deps: Option<Vec<String>>,
 }
 
 /// A single `cardano-up context env` output → contract `.env` key mapping,

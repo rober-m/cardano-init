@@ -144,7 +144,7 @@ Tools currently in the registry (✅ available · ⬜ planned· 🧪 experimenta
 | On-chain | Off-chain | Devnet | Infrastructure | Formal methods |
 |----------|-----------|--------|----------------|----------------|
 | ✅ Aiken | ✅ MeshJS | ✅ Yaci DevKit | ✅ Kupo | 🧪 Blaster |
-| ✅ Scalus | ✅ Scalus | | ✅ Ogmios | |
+| ✅ Scalus | ✅ Scalus | ✅ Dingo | ✅ Ogmios | |
 | ✅ Plinth | ✅ Evolution SDK | | ✅ Dolos | |
 | ⬜ Pebble | 🧪 Tx3 | | ✅ Tx Submit API | |
 | ⬜ Plutarch | ⬜ Lucid Evolution | | ✅ Cardano Node | |

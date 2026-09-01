@@ -140,7 +140,7 @@ Priority: **M** = Must (v1), **S** = Should (v1 if affordable), **C** = Could (l
 ### Interface contract (mechanically enforced, see TECH_SPEC)
 
 - **FR-10 (M):** On-chain templates produce the CIP-57 blueprint at the canonical path (`blueprint/plutus.json`) during `build` and other roles (e.g. off-chain, devnet, formal-methods) read it from the same path.
-- **FR-11 (M):** Whichever component provisions a local chain endpoint writes standardized connection details to `.env` (e.g. `INDEXER_URL`) during `dev` — an infrastructure service, or a local devnet in the devnet role (e.g. Yaci DevKit); consumers read from there and react only to the presence of the keys, not to which role wrote them.
+- **FR-11 (M):** Whichever component provisions a local chain endpoint writes standardized connection details to `.env` (e.g. `INDEXER_URL`) during `dev` — an infrastructure service, or a local devnet in the devnet role (e.g. Yaci DevKit or Dingo); consumers read from there and react only to the presence of the keys, not to which role wrote them.
 - **FR-12 (M):** Every template works **independently** (e.g., its `just build` succeeds with no other roles present), and has to handle all shared `just` commands. It can optionally add more to be ran on that role's folder, but it can't avoid handling the shared ones (it should, at least, print a message).
 
 ### Agent affordances

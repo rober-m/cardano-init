@@ -621,20 +621,49 @@ pub fn run() -> i32 {
     }
 }
 
-/// The required dependencies for a set of tool ids: the base dep `just`, plus
-/// the `system_deps` of each tool (deduped/sorted later by the resolver).
-///
-/// The aggregated infra component is reported by the scan under the synthetic
-/// `INFRA_DRIVER_ID`; it contributes the union of every infra tool's
-/// `system_deps` (data-driven from the registry — `{docker, cardano-up}`).
-fn required_deps<'a>(tool_ids: impl Iterator<Item = &'a str>, registry: &Registry) -> Vec<String> {
+fn required_deps_for_assignments<'a>(
+    assignments: impl Iterator<Item = (&'a str, crate::registry::types::Role)>,
+    registry: &Registry,
+) -> Vec<String> {
     let mut deps = vec![crate::doctor::BASE_DEP.to_string()];
-    for id in tool_ids {
+    for (id, role) in assignments {
         if id == crate::doctor::INFRA_DRIVER_ID {
             for tool in registry.tools_for_role(crate::registry::types::Role::Infrastructure) {
                 deps.extend(tool.system_deps.iter().cloned());
             }
         } else if let Some(tool) = registry.get(id) {
+            let role_deps = tool
+                .roles
+                .get(&role)
+                .and_then(|config| config.system_deps.as_ref())
+                .unwrap_or(&tool.system_deps);
+            deps.extend(role_deps.iter().cloned());
+        }
+    }
+    deps
+}
+
+fn required_deps_for_components(
+    components: &[crate::doctor::probe::DetectedComponent],
+    registry: &Registry,
+) -> Vec<String> {
+    let mut deps = required_deps_for_assignments(
+        components
+            .iter()
+            .filter_map(|component| match component.kind {
+                crate::doctor::probe::ComponentKind::Role(role) => {
+                    Some((component.tool_id.as_str(), role))
+                }
+                crate::doctor::probe::ComponentKind::Protocol => None,
+            }),
+        registry,
+    );
+    for component in components {
+        if matches!(
+            component.kind,
+            crate::doctor::probe::ComponentKind::Protocol
+        ) && let Some(tool) = registry.get(&component.tool_id)
+        {
             deps.extend(tool.system_deps.iter().cloned());
         }
     }
@@ -732,7 +761,7 @@ fn run_doctor(registry: &Registry, format: Format) -> Result<(), CliError> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let scan = probe::scan_project(&cwd, registry);
 
-    let required = required_deps(scan.components.iter().map(|c| c.tool_id.as_str()), registry);
+    let required = required_deps_for_components(&scan.components, registry);
     let (env, report) = with_spinner("Probing environment…", format, || {
         let env = probe::detect_environment(&catalog);
         let report = doctor::resolve_all(&required, &catalog, &env);
@@ -887,8 +916,11 @@ fn resolve_selection_deps(
     use crate::doctor::{self, catalog::DepCatalog, probe};
 
     let catalog = DepCatalog::load()?;
-    let required = required_deps(
-        selection.assignments.iter().map(|a| a.tool_id.as_str()),
+    let required = required_deps_for_assignments(
+        selection
+            .assignments
+            .iter()
+            .map(|a| (a.tool_id.as_str(), a.role)),
         registry,
     );
     let env = probe::detect_environment(&catalog);
@@ -1101,7 +1133,14 @@ mod tests {
     fn required_deps_unions_just_with_tool_deps() {
         let registry = Registry::load().unwrap();
         // aiken → ["aiken"], meshjs → ["node"]; plus the base dep "just".
-        let deps = required_deps(["aiken", "meshjs"].into_iter(), &registry);
+        let deps = required_deps_for_assignments(
+            [
+                ("aiken", crate::registry::types::Role::OnChain),
+                ("meshjs", crate::registry::types::Role::OffChain),
+            ]
+            .into_iter(),
+            &registry,
+        );
         assert!(deps.contains(&"just".to_string()));
         assert!(deps.contains(&"aiken".to_string()));
         assert!(deps.contains(&"node".to_string()));
@@ -1112,9 +1151,28 @@ mod tests {
         let registry = Registry::load().unwrap();
         // The aggregated infra component (reported under INFRA_DRIVER_ID by the
         // scan) contributes the union of infra tools' system_deps.
-        let deps = required_deps([crate::doctor::INFRA_DRIVER_ID].into_iter(), &registry);
+        let deps = required_deps_for_assignments(
+            [(
+                crate::doctor::INFRA_DRIVER_ID,
+                crate::registry::types::Role::Infrastructure,
+            )]
+            .into_iter(),
+            &registry,
+        );
         assert!(deps.contains(&"just".to_string()));
         assert!(deps.contains(&"docker".to_string()));
         assert!(deps.contains(&"cardano-up".to_string()));
+    }
+
+    #[test]
+    fn required_deps_uses_role_specific_deps() {
+        let registry = Registry::load().unwrap();
+        let deps = required_deps_for_assignments(
+            [("dingo", crate::registry::types::Role::Devnet)].into_iter(),
+            &registry,
+        );
+        assert!(deps.contains(&"just".to_string()));
+        assert!(deps.contains(&"docker".to_string()));
+        assert!(!deps.contains(&"cardano-up".to_string()));
     }
 }

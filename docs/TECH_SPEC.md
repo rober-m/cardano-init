@@ -456,7 +456,7 @@ Constants (`contract.rs`):
 - **On-chain** `build` writes `../blueprint/plutus.json`.
 - **Fullstack (`protocol/`)** `build` also writes `../blueprint/plutus.json` (it *is* the on-chain producer for its project) and reads/writes `../.env` like an off-chain consumer. Its internal on-chain↔off-chain link may bypass the file (shared in-process types), but the external seam is mandatory so devnet/formal/infra still compose.
 - **Off-chain / devnet / formal-methods** read `../blueprint/plutus.json` and `../.env` if present; degrade gracefully if absent.
-- **The component that provisions a local chain endpoint** writes the standard connection vars (`INDEXER_URL`, …) into `../.env` during its `dev`. This is **role-agnostic**: it is typically an *infrastructure* service, but a local devnet such as Yaci DevKit in the *devnet* role does it too. The seam is the `.env` keys, not the role — a tool's **role** is its *purpose*, while writing `.env` is the orthogonal *capability* of exposing a local endpoint. Consumers react only to the presence of `INDEXER_URL`, never to which tool/role set it (this is what keeps composition O(tools), ARCHITECTURE §1).
+- **The component that provisions a local chain endpoint** writes the standard connection vars (`INDEXER_URL`, …) into `../.env` during its `dev`. This is **role-agnostic**: it is typically an *infrastructure* service, but a local devnet such as Yaci DevKit or Dingo in the *devnet* role does it too. The seam is the `.env` keys, not the role — a tool's **role** is its *purpose*, while writing `.env` is the orthogonal *capability* of exposing a local endpoint. Consumers react only to the presence of `INDEXER_URL`, never to which tool/role set it (this is what keeps composition O(tools), ARCHITECTURE §1).
 
 ### 7.1 Top-level Justfile aggregation
 
@@ -472,7 +472,7 @@ There is **no top-level `dev` target**. Long-running / interactive tasks (watch 
 
 `dev` is **optional per component** (§7): a tool provides it only when it has a genuine watch/daemon/devnet mode. Because the top level never aggregates `dev`, a component without one costs nothing — and we don't ship no-op `dev` targets just to fill the slot.
 
-A component whose `dev` provisions a local endpoint (e.g. Yaci DevKit's devnet) writes the standard connection vars into `../.env` as part of that per-component `dev`; off-chain/devnet consumers then pick them up automatically (§7). Bringing such a service up is therefore a deliberate, per-component developer action, not a top-level orchestration step.
+A component whose `dev` provisions a local endpoint (e.g. a Yaci or Dingo devnet) writes the standard connection vars into `../.env` as part of that per-component `dev`; off-chain/devnet consumers then pick them up automatically (§7). Bringing such a service up is therefore a deliberate, per-component developer action, not a top-level orchestration step.
 
 ---
 

@@ -1,0 +1,25 @@
+# Devnet component (Dingo) — local single-node chain + Blockfrost API
+# Part of {{ project_name }}
+
+build:
+    @sh scripts/compose.sh config --quiet
+    @echo "Dingo devnet Compose configuration is valid."
+
+test:
+    @sh scripts/devnet-test.sh
+
+dev:
+    @sh scripts/compose.sh down --volumes --remove-orphans
+    @sh scripts/set-env.sh set
+    @echo "Starting Dingo devnet (Ctrl-C to stop) ..."
+    sh scripts/compose.sh up
+
+fund address amount="100000000":
+    @sh scripts/fund.sh '{{ "{{address}}" }}' '{{ "{{amount}}" }}'
+
+faucet-address:
+    @sh scripts/compose.sh exec -T dingo cardano-cli address build --payment-verification-key-file /data/db/devnet-config/keys/faucet.vkey --testnet-magic 42
+
+clean:
+    @sh scripts/compose.sh down --volumes --remove-orphans
+    @sh scripts/set-env.sh clear

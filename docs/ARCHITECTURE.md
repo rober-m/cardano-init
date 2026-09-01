@@ -66,7 +66,7 @@ cardano-init/
 ├── registry/tools/             # Embedded data: one TOML per tool (15 tools)
 │   ├── aiken.toml  plinth.toml  scalus.toml                       # on-chain
 │   ├── meshjs.toml  evolution.toml  tx3.toml                      # off-chain
-│   ├── cardano-node.toml  cardano-node-api.toml  dingo.toml       # infra
+│   ├── cardano-node.toml  cardano-node-api.toml  dingo.toml       # infra / devnet
 │   ├── dolos.toml  kupo.toml  ogmios.toml  tx-submit-api.toml     # infra
 │   ├── yaci.toml  blaster.toml                                    # devnet / formal-methods
 │
@@ -184,7 +184,7 @@ on-chain↔off-chain link between its two halves.
 
 - **Every template** ships a `Justfile` exposing `build`, `test`, `clean`, and works **independently** (its `just build` succeeds with no other roles present). A no-op-for-this-tool target among those three still exists (printing a message is fine). **`dev` is optional** — provided only when the tool has a real watch/daemon/devnet mode. The **top level** aggregates only `build`/`test`/`clean`; `dev`, where present, is per-component (§6.2 / TECH_SPEC §7.2), never aggregated.
 - **On-chain** produces the CIP-57 blueprint at `../blueprint/plutus.json` during `build`. Other roles read it from that path if present.
-- **The component that provisions a local chain endpoint** writes the standard connection vars to `../.env` during its `dev`. This is **role-agnostic** — usually an *infrastructure* service, but a local devnet such as Yaci DevKit in the *devnet* role does it too. Role = a tool's *purpose*; writing `.env` = the orthogonal *capability* of exposing a local endpoint. Consumers react to the presence of `INDEXER_URL`, never to which role set it (principle 1).
+- **The component that provisions a local chain endpoint** writes the standard connection vars to `../.env` during its `dev`. This is **role-agnostic** — usually an *infrastructure* service, but a local devnet such as Yaci DevKit or Dingo in the *devnet* role does it too. Role = a tool's *purpose*; writing `.env` = the orthogonal *capability* of exposing a local endpoint. Consumers react to the presence of `INDEXER_URL`, never to which role set it (principle 1).
 - **Off-chain / devnet / formal-methods** read the blueprint and `.env` if present, and degrade gracefully when absent.
 
 Layered on top of that mechanical seam is a **shared worked example**: every on-chain and off-chain template implements the same **gift card** (a one-shot minting policy plus a `redeem` spending validator) with a common parameter/redeemer ABI. The mechanical contract makes tools *pluggable*; the shared example makes a mixed pair actually *work end-to-end* — the off-chain template parameterizes the compiled validators straight from the blueprint, so e.g. the Scalus off-chain drives an Aiken contract, and MeshJS drives a Scalus one. See ADDING_A_TOOL.md ("The reference example: Gift Card") for the exact ABI a new tool must match.

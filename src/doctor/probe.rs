@@ -609,6 +609,27 @@ mod tests {
     }
 
     #[test]
+    fn scan_identifies_dingo_devnet() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        fs::create_dir_all(root.join("devnet")).unwrap();
+        fs::write(
+            root.join("devnet/docker-compose.yml"),
+            "services:\n  dingo:\n    image: ghcr.io/blinklabs-io/dingo:0.69.0\n",
+        )
+        .unwrap();
+
+        let result = scan_project(root, &registry());
+        let devnet = result
+            .components
+            .iter()
+            .find(|c| c.kind == ComponentKind::Role(Role::Devnet))
+            .expect("Dingo devnet should be detected");
+        assert_eq!(devnet.tool_id, "dingo");
+        assert!(result.unrecognized.is_empty());
+    }
+
+    #[test]
     fn scan_recognizes_aggregated_infra_by_driver_marker() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();

@@ -158,6 +158,7 @@ export class GiftCardContract {
   private readonly evaluator?: IEvaluator;
   private readonly wallet: GiftCardWallet;
   private readonly networkId: number;
+  private cachedCostModels?: number[][];
   private readonly giftCardCompiledCode: string;
   private readonly redeemCompiledCode: string;
 
@@ -180,25 +181,55 @@ export class GiftCardContract {
   }
 
   /** A fresh transaction builder. One builder builds one transaction. */
-  private newTxBuilder(): MeshTxBuilder {
+  private async newTxBuilder(): Promise<MeshTxBuilder> {
     const builder = new MeshTxBuilder({
       fetcher: this.fetcher,
       submitter: this.submitter,
       evaluator: this.evaluator,
     });
-    // Pin the Plutus cost models the script-data hash is computed from. These
-    // are the current protocol-era constants (identical to what every Cardano
-    // network uses), so tx building is deterministic and doesn't depend on the
-    // provider implementing `fetchCostModels` — MeshJS's YaciProvider does not,
-    // and without this the builder logs an alarming-looking (but harmless)
-    // fallback. To instead use a provider's network-fetched cost models, drop
-    // this call (BlockfrostProvider supports it; YaciProvider does not yet).
-    builder.setNetwork([
+    builder.setNetwork(await this.costModels());
+    return builder;
+  }
+
+  /**
+   * The Plutus cost models the script-data hash is computed from.
+   *
+   * These must be the ones the chain actually runs. The node recomputes the
+   * hash and rejects a mismatch outright ("script data hash mismatch",
+   * Conway UTxO rule 17), so a pinned constant list is only safe while it
+   * agrees with the chain. It often does not: a devnet can run a different
+   * protocol version than the constants were cut for, and the lists grow as
+   * Plutus gains builtins.
+   *
+   * So ask the provider first, and keep the shipped constants as a fallback
+   * for one that cannot answer — MeshJS's YaciProvider throws "Method not
+   * implemented" — where pinning at least keeps tx building deterministic.
+   * Cached because it is per-chain, not per-transaction.
+   */
+  private async costModels(): Promise<number[][]> {
+    if (this.cachedCostModels !== undefined) {
+      return this.cachedCostModels;
+    }
+    const fetchCostModels = (
+      this.fetcher as { fetchCostModels?: () => Promise<number[][]> }
+    ).fetchCostModels;
+    if (typeof fetchCostModels === "function") {
+      try {
+        const fetched = await fetchCostModels.call(this.fetcher);
+        if (Array.isArray(fetched) && fetched.length >= 3) {
+          this.cachedCostModels = fetched;
+          return fetched;
+        }
+      } catch {
+        // Provider cannot supply them; fall through to the constants.
+      }
+    }
+    this.cachedCostModels = [
       DEFAULT_V1_COST_MODEL_LIST,
       DEFAULT_V2_COST_MODEL_LIST,
       DEFAULT_V3_COST_MODEL_LIST,
-    ]);
-    return builder;
+    ];
+    return this.cachedCostModels;
   }
 
   /** Apply the (token name, seed UTxO) parameters to the one-shot mint policy. */
@@ -285,7 +316,7 @@ export class GiftCardContract {
       firstUtxo.input,
     );
 
-    const tx = await this.newTxBuilder()
+    const tx = await (await this.newTxBuilder())
       .txIn(
         firstUtxo.input.txHash,
         firstUtxo.input.outputIndex,
@@ -334,7 +365,7 @@ export class GiftCardContract {
     const policyId = resolveScriptHash(giftCardScript, LANGUAGE_VERSION);
     const redeemScript = this.redeemCbor(tokenNameHex, policyId);
 
-    const tx = await this.newTxBuilder()
+    const tx = await (await this.newTxBuilder())
       .spendingPlutusScript(LANGUAGE_VERSION)
       .txIn(
         giftCardUtxo.input.txHash,

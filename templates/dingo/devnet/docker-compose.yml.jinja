@@ -1,0 +1,27 @@
+services:
+  dingo:
+    image: ghcr.io/blinklabs-io/dingo:0.70.2@sha256:aa9269912d0429bf7f80c0966b22b214b8ecbc22f47d59ac54a8eb252bc4a862
+    init: true
+    entrypoint: ["/bin/bash", "/usr/local/bin/cardano-init-start-dingo.sh"]
+    environment:
+      CARDANO_NETWORK: devnet
+      CARDANO_CONFIG: /data/db/devnet-config/config.json
+      DINGO_RUN_MODE: dev
+      DINGO_PLUGINS_API_BLOCKFROST_CONFIG_PORT: "3000"
+    ports:
+      - "${DINGO_DEVNET_BLOCKFROST_PORT:-3000}:3000"
+    volumes:
+      - dingo-data:/data/db
+      - dingo-ipc:/ipc
+      - ./scripts/start-dingo.sh:/usr/local/bin/cardano-init-start-dingo.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/v0/blocks/latest | grep -q '\"hash\"'"]
+      interval: 2s
+      timeout: 3s
+      start_period: 10s
+      retries: 60
+    stop_grace_period: 30s
+
+volumes:
+  dingo-data:
+  dingo-ipc:

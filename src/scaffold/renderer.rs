@@ -354,6 +354,14 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_dingo_devnet_only() {
+        assert_snapshot(
+            "dingo_devnet_only",
+            &sel(vec![a(Role::Devnet, "dingo")], Network::Preview, false),
+        );
+    }
+
+    #[test]
     fn snapshot_aiken_meshjs_yaci() {
         // The headline integration: on-chain + off-chain + a local devnet in the
         // devnet role. Locks the connection wiring (MeshJS ↔ Yaci via .env).
