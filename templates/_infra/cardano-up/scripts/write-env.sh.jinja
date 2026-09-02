@@ -10,19 +10,70 @@ set -e
 
 CONTEXT="{{ infra_context_name }}"
 ENV_FILE="../.env"
+LOCK_FILE="${ENV_FILE}.lock"
+
+# Serialize updates with other generated writers of the shared .env file. The
+# operating system releases this advisory lock if the writer exits or crashes.
+if [ "${1:-}" != "--cardano-init-env-lock-held" ]; then
+    case "$(uname -s)" in
+        Linux)
+            command -v flock >/dev/null 2>&1 || {
+                printf 'Missing environment lock tool: flock\n' >&2
+                exit 1
+            }
+            exec flock -w 30 "$LOCK_FILE" sh "$0" --cardano-init-env-lock-held
+            ;;
+        Darwin)
+            command -v lockf >/dev/null 2>&1 || {
+                printf 'Missing environment lock tool: lockf\n' >&2
+                exit 1
+            }
+            exec lockf -k -t 30 "$LOCK_FILE" sh "$0" --cardano-init-env-lock-held
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            if command -v powershell.exe >/dev/null 2>&1; then
+                powershell_bin="powershell.exe"
+            elif command -v pwsh.exe >/dev/null 2>&1; then
+                powershell_bin="pwsh.exe"
+            else
+                printf 'Missing environment lock tool: PowerShell\n' >&2
+                exit 1
+            fi
+            exec "$powershell_bin" -NoLogo -NoProfile -NonInteractive \
+                -ExecutionPolicy Bypass -File scripts/with-env-lock.ps1 \
+                "$LOCK_FILE" "$ENV_FILE" "$CONTEXT"{%- for m in infra_env %} "{{ m.to }}" "{{ m.from }}"{%- endfor %}
+            ;;
+        *)
+            printf 'Unsupported platform for environment locking\n' >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# Reclaim scratch files left by a killed writer only while holding the shared
+# lock, so a live writer's scratch file can never be removed.
+rm -f "${LOCK_FILE}".tmp.*
+
+# Scratch files are created beside .env so the final move is an atomic rename
+# on one filesystem. Clean up the active scratch file on a normal/error exit.
+tmp=""
+trap '[ -z "$tmp" ] || rm -f "$tmp"' 0
+trap 'exit 1' 1 2 15
 
 # Load cardano-up's outputs (e.g. KUPO_URL, OGMIOS_URL, CARDANO_NODE_SOCKET_PATH)
 # as shell variables. `context env` emits `export KEY=VALUE` lines.
-eval "$(cardano-up context env --context "$CONTEXT")"
+context_env="$(cardano-up context env --context "$CONTEXT")"
+eval "$context_env"
 
 # Replace NAME=… in $ENV_FILE (append if absent); leaves all other lines intact.
 set_key() {
     name="$1"
     value="$2"
-    tmp="$(mktemp)"
+    tmp="$(mktemp "${LOCK_FILE}.tmp.XXXXXX")"
     grep -v "^${name}=" "$ENV_FILE" > "$tmp" 2>/dev/null || true
     printf '%s=%s\n' "$name" "$value" >> "$tmp"
     mv "$tmp" "$ENV_FILE"
+    tmp=""
 }
 
 # CARDANO_NETWORK is left alone (user config in ../.env) — this script only owns

@@ -283,7 +283,7 @@ name = "Dolos"
 description = "…"
 website = "https://…"
 languages = []                       # infra providers have no user-facing language
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]  # match the other infra providers
 detect = []                          # infra is scanned by a driver marker, not per-tool
 
 [roles.infrastructure]

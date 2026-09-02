@@ -12,3 +12,7 @@ dest = "README.md"
 [[files]]
 source = "scripts/write-env.sh.jinja"
 dest = "scripts/write-env.sh"
+
+[[files]]
+source = "scripts/with-env-lock.ps1"
+dest = "scripts/with-env-lock.ps1"

@@ -13,7 +13,7 @@ connection details into the project .env). Yaci DevKit is a dev/test tool — \
 you never deploy it — so it fills the devnet role, not infrastructure."""
 website = "https://devkit.yaci.xyz"
 languages = ["typescript"]
-system_deps = ["docker", "node"]
+system_deps = ["docker", "node", "env-lock"]
 nix_packages = []
 detect = [{ file = "scripts/set-env.mjs", contains = "Yaci" }]
 

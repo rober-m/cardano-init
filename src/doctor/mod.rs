@@ -100,6 +100,13 @@ fn dep_present(recipe: &DepRecipe, env: &Environment) -> bool {
     recipe
         .binaries
         .iter()
+        .chain(
+            recipe
+                .binaries_by_os
+                .get(env.os.as_key())
+                .into_iter()
+                .flatten(),
+        )
         .any(|b| env.present_binaries.contains(b))
 }
 
@@ -234,12 +241,16 @@ mod tests {
     use super::*;
     use crate::doctor::probe::Os;
 
-    fn env(installers: &[Installer], present_bins: &[&str]) -> Environment {
+    fn env_for(os: Os, installers: &[Installer], present_bins: &[&str]) -> Environment {
         Environment {
-            os: Os::Linux,
+            os,
             installers: installers.iter().copied().collect(),
             present_binaries: present_bins.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    fn env(installers: &[Installer], present_bins: &[&str]) -> Environment {
+        env_for(Os::Linux, installers, present_bins)
     }
 
     fn catalog() -> DepCatalog {
@@ -262,6 +273,41 @@ mod tests {
         assert!(just.plan.is_empty());
         assert!(just.docs.is_none());
         assert!(report.all_required_present);
+    }
+
+    #[test]
+    fn env_lock_uses_only_the_current_platform_binaries() {
+        for (os, present) in [
+            (Os::Linux, "flock"),
+            (Os::MacOs, "lockf"),
+            (Os::Windows, "powershell.exe"),
+            (Os::Windows, "pwsh.exe"),
+        ] {
+            let report = resolve_all(
+                &["env-lock".to_string()],
+                &catalog(),
+                &env_for(os, &[], &[present]),
+            );
+            assert!(status(&report, "env-lock").present, "{os:?}: {present}");
+        }
+
+        for (os, wrong) in [
+            (Os::Linux, "lockf"),
+            (Os::MacOs, "flock"),
+            (Os::Windows, "flock"),
+            (Os::Windows, "powershell"),
+            (Os::Other, "flock"),
+        ] {
+            let report = resolve_all(
+                &["env-lock".to_string()],
+                &catalog(),
+                &env_for(os, &[], &[wrong]),
+            );
+            let lock = status(&report, "env-lock");
+            assert!(!lock.present, "{os:?} must not accept {wrong}");
+            assert!(lock.plan.is_empty());
+            assert!(lock.docs.is_some());
+        }
     }
 
     #[test]

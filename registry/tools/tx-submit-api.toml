@@ -9,7 +9,7 @@ infrastructure via cardano-up (which pulls in a Cardano node automatically). \
 Its endpoint is published to the project .env as TX_SUBMIT_URL."""
 website = "https://github.com/blinklabs-io/tx-submit-api"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]

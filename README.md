@@ -65,6 +65,13 @@ irm https://github.com/input-output-hk/cardano-init/releases/latest/download/car
 
 Prefer a specific version or a manual download? Grab it from the [Releases page](https://github.com/input-output-hk/cardano-init/releases).
 
+### System requirements
+
+Generated infrastructure and Yaci projects serialize shared `.env` updates with
+the host lock tool: `flock` from util-linux on Linux and `lockf` on macOS.
+Infrastructure projects use PowerShell on Windows. `cardano-init doctor` checks
+the tool for the current platform. Yaci DevKit does not support Windows.
+
 <details>
 <summary><b>With Nix (flake)</b></summary>
 

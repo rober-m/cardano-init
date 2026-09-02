@@ -10,7 +10,7 @@ cardano-node), published to the project .env as NODE_SOCKET_PATH, and its gRPC \
 endpoint as DOLOS_GRPC_URL."""
 website = "https://github.com/txpipe/dolos"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]

@@ -244,6 +244,8 @@ node_modules/
 
 # Environment
 .env.local
+.env.lock
+.env.lock.tmp.*
 
 # IDE
 .idea/
@@ -1626,19 +1628,70 @@ set -e
 
 CONTEXT="snap-project"
 ENV_FILE="../.env"
+LOCK_FILE="${ENV_FILE}.lock"
+
+# Serialize updates with other generated writers of the shared .env file. The
+# operating system releases this advisory lock if the writer exits or crashes.
+if [ "${1:-}" != "--cardano-init-env-lock-held" ]; then
+    case "$(uname -s)" in
+        Linux)
+            command -v flock >/dev/null 2>&1 || {
+                printf 'Missing environment lock tool: flock\n' >&2
+                exit 1
+            }
+            exec flock -w 30 "$LOCK_FILE" sh "$0" --cardano-init-env-lock-held
+            ;;
+        Darwin)
+            command -v lockf >/dev/null 2>&1 || {
+                printf 'Missing environment lock tool: lockf\n' >&2
+                exit 1
+            }
+            exec lockf -k -t 30 "$LOCK_FILE" sh "$0" --cardano-init-env-lock-held
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            if command -v powershell.exe >/dev/null 2>&1; then
+                powershell_bin="powershell.exe"
+            elif command -v pwsh.exe >/dev/null 2>&1; then
+                powershell_bin="pwsh.exe"
+            else
+                printf 'Missing environment lock tool: PowerShell\n' >&2
+                exit 1
+            fi
+            exec "$powershell_bin" -NoLogo -NoProfile -NonInteractive \
+                -ExecutionPolicy Bypass -File scripts/with-env-lock.ps1 \
+                "$LOCK_FILE" "$ENV_FILE" "$CONTEXT" "NODE_SOCKET_PATH" "CARDANO_NODE_SOCKET_PATH" "INDEXER_URL" "KUPO_URL" "OGMIOS_URL" "OGMIOS_URL"
+            ;;
+        *)
+            printf 'Unsupported platform for environment locking\n' >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# Reclaim scratch files left by a killed writer only while holding the shared
+# lock, so a live writer's scratch file can never be removed.
+rm -f "${LOCK_FILE}".tmp.*
+
+# Scratch files are created beside .env so the final move is an atomic rename
+# on one filesystem. Clean up the active scratch file on a normal/error exit.
+tmp=""
+trap '[ -z "$tmp" ] || rm -f "$tmp"' 0
+trap 'exit 1' 1 2 15
 
 # Load cardano-up's outputs (e.g. KUPO_URL, OGMIOS_URL, CARDANO_NODE_SOCKET_PATH)
 # as shell variables. `context env` emits `export KEY=VALUE` lines.
-eval "$(cardano-up context env --context "$CONTEXT")"
+context_env="$(cardano-up context env --context "$CONTEXT")"
+eval "$context_env"
 
 # Replace NAME=… in $ENV_FILE (append if absent); leaves all other lines intact.
 set_key() {
     name="$1"
     value="$2"
-    tmp="$(mktemp)"
+    tmp="$(mktemp "${LOCK_FILE}.tmp.XXXXXX")"
     grep -v "^${name}=" "$ENV_FILE" > "$tmp" 2>/dev/null || true
     printf '%s=%s\n' "$name" "$value" >> "$tmp"
     mv "$tmp" "$ENV_FILE"
+    tmp=""
 }
 
 # CARDANO_NETWORK is left alone (user config in ../.env) — this script only owns
@@ -1646,4 +1699,192 @@ set_key() {
 set_key NODE_SOCKET_PATH "$CARDANO_NODE_SOCKET_PATH"
 set_key INDEXER_URL "$KUPO_URL"
 set_key OGMIOS_URL "$OGMIOS_URL"
+
+=== infra/scripts/with-env-lock.ps1 ===
+param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string] $LockPath,
+
+    [Parameter(Mandatory = $true, Position = 1)]
+    [string] $EnvPath,
+
+    [Parameter(Mandatory = $true, Position = 2)]
+    [string] $Context,
+
+    [Parameter(Position = 3, ValueFromRemainingArguments = $true)]
+    [string[]] $Mappings
+)
+
+$ErrorActionPreference = "Stop"
+if ($Mappings.Count -eq 0 -or $Mappings.Count % 2 -ne 0) {
+    throw "Expected target/source environment mapping pairs"
+}
+for ($index = 0; $index -lt $Mappings.Count; $index += 2) {
+    $target = $Mappings[$index]
+    $source = $Mappings[$index + 1]
+    if ($target -notmatch '^[A-Za-z_][A-Za-z0-9_]*$' -or
+        $source -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        throw "Invalid environment mapping: $target/$source"
+    }
+}
+
+$lockFullPath = [IO.Path]::GetFullPath($LockPath)
+$envFullPath = [IO.Path]::GetFullPath($EnvPath)
+if (-not [string]::Equals(
+    $lockFullPath,
+    "$envFullPath.lock",
+    [StringComparison]::OrdinalIgnoreCase
+)) {
+    throw "Lock path must be the environment path plus .lock"
+}
+$deadline = [DateTime]::UtcNow.AddSeconds(30)
+$lock = $null
+
+while ($null -eq $lock) {
+    try {
+        $lock = [IO.File]::Open(
+            $lockFullPath,
+            [IO.FileMode]::OpenOrCreate,
+            [IO.FileAccess]::ReadWrite,
+            [IO.FileShare]::None
+        )
+    }
+    catch [IO.IOException] {
+        if ([DateTime]::UtcNow -ge $deadline) {
+            [Console]::Error.WriteLine("Timed out waiting for {0}", $LockPath)
+            exit 1
+        }
+        Start-Sleep -Milliseconds 100
+    }
+}
+
+$tempPath = $null
+$backupPath = $null
+try {
+    $lockDirectory = [IO.Path]::GetDirectoryName($lockFullPath)
+    $lockName = [IO.Path]::GetFileName($lockFullPath)
+    foreach ($stalePath in [IO.Directory]::GetFiles($lockDirectory, "$lockName.tmp.*")) {
+        [IO.File]::Delete($stalePath)
+    }
+
+    $collectorScript = @'
+set -e
+context_env="$(cardano-up context env --context "$1")"
+eval "$context_env"
+shift
+while [ "$#" -gt 0 ]; do
+    target="$1"
+    source="$2"
+    shift 2
+    eval "value=\${$source}"
+    printf '%s=%s\n' "$target" "$value"
+done
+'@
+
+    $consoleOutputEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $mappedLines = @(& sh -c $collectorScript cardano-init-env $Context @Mappings)
+    }
+    finally {
+        [Console]::OutputEncoding = $consoleOutputEncoding
+    }
+    $collectorExitCode = $LASTEXITCODE
+    if ($collectorExitCode -ne 0) {
+        exit $collectorExitCode
+    }
+    if ($mappedLines.Count -ne $Mappings.Count / 2) {
+        throw "Environment value collector returned an unexpected line count"
+    }
+
+    $updates = [Collections.Specialized.OrderedDictionary]::new()
+    for ($index = 0; $index -lt $Mappings.Count; $index += 2) {
+        $target = $Mappings[$index]
+        $prefix = "$target="
+        $line = $mappedLines[$index / 2]
+        if (-not $line.StartsWith($prefix, [StringComparison]::Ordinal)) {
+            throw "Environment value collector returned an unexpected mapping"
+        }
+        if ($updates.Contains($target)) {
+            throw "Duplicate environment target: $target"
+        }
+        $updates.Add($target, $line.Substring($prefix.Length))
+    }
+
+    $original = if ([IO.File]::Exists($envFullPath)) {
+        [IO.File]::ReadAllText($envFullPath)
+    }
+    else {
+        ""
+    }
+    $lines = if ($original.Length -gt 0) {
+        [Text.RegularExpressions.Regex]::Split($original, "\r?\n")
+    }
+    else {
+        @()
+    }
+    $lineCount = $lines.Count
+    if ($lineCount -gt 0 -and $lines[$lineCount - 1] -eq "" -and $original.EndsWith("`n")) {
+        $lineCount--
+    }
+
+    $outputLines = [Collections.Generic.List[string]]::new()
+    for ($index = 0; $index -lt $lineCount; $index++) {
+        $line = $lines[$index]
+        $owned = $false
+        foreach ($target in $updates.Keys) {
+            if ($line.StartsWith("$target=", [StringComparison]::Ordinal)) {
+                $owned = $true
+                break
+            }
+        }
+        if (-not $owned) {
+            $outputLines.Add($line)
+        }
+    }
+    foreach ($target in $updates.Keys) {
+        $outputLines.Add("$target=$($updates[$target])")
+    }
+
+    $text = [string]::Join("`n", $outputLines)
+    if ($text.Length -gt 0) {
+        $text += "`n"
+    }
+    $tempPath = "$lockFullPath.tmp.$([IO.Path]::GetRandomFileName())"
+    $tempStream = [IO.File]::Open(
+        $tempPath,
+        [IO.FileMode]::CreateNew,
+        [IO.FileAccess]::Write,
+        [IO.FileShare]::None
+    )
+    try {
+        $bytes = ([Text.UTF8Encoding]::new($false)).GetBytes($text)
+        $tempStream.Write($bytes, 0, $bytes.Length)
+        $tempStream.Flush($true)
+    }
+    finally {
+        $tempStream.Dispose()
+    }
+
+    if ([IO.File]::Exists($envFullPath)) {
+        $backupPath = "$lockFullPath.tmp.backup.$([IO.Path]::GetRandomFileName())"
+        [IO.File]::Replace($tempPath, $envFullPath, $backupPath)
+        $tempPath = $null
+        [IO.File]::Delete($backupPath)
+        $backupPath = $null
+    }
+    else {
+        [IO.File]::Move($tempPath, $envFullPath)
+        $tempPath = $null
+    }
+}
+finally {
+    if ($null -ne $tempPath -and [IO.File]::Exists($tempPath)) {
+        [IO.File]::Delete($tempPath)
+    }
+    if ($null -ne $backupPath -and [IO.File]::Exists($backupPath)) {
+        [IO.File]::Delete($backupPath)
+    }
+    $lock.Dispose()
+}
 

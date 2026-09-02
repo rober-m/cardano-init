@@ -10,7 +10,7 @@ which pulls in a Cardano node automatically. Its endpoint is published to the \
 project .env as OGMIOS_URL."""
 website = "https://ogmios.dev"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]

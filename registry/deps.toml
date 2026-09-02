@@ -2,6 +2,7 @@
 #
 # Keyed by dep id. Each recipe has:
 #   binaries  presence check — the dep is present if any of these is on PATH
+#   binaries_by_os  optional OS-specific alternatives, keyed by linux/macos/windows/other
 #   docs      universal fallback when the resolver can't produce a plan
 #   install   ordered list of single-key { installer = arg } methods (order = preference)
 #
@@ -54,6 +55,12 @@ install = [{ brew = "openjdk" }, { apt = "default-jdk" }, { winget = "EclipseAdo
 binaries = ["docker"]
 docs = "https://docs.docker.com/get-docker/"
 install = [{ brew = "docker" }, { apt = "docker.io" }, { winget = "Docker.DockerDesktop" }, { nix = "docker" }]
+
+[env-lock]
+binaries = []
+binaries_by_os = { linux = ["flock"], macos = ["lockf"], windows = ["powershell.exe", "pwsh.exe"] }
+docs = "https://github.com/input-output-hk/cardano-init#system-requirements"
+install = []
 
 [cabal]
 binaries = ["cabal"]

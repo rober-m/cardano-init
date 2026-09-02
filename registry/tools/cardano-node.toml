@@ -10,7 +10,7 @@ tool that uses the socket, or add an indexer/query provider (kupo, ogmios) for \
 a fuller stack."""
 website = "https://github.com/IntersectMBO/cardano-node"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]

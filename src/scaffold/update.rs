@@ -112,7 +112,9 @@ pub struct UpdatePlan {
     pub slot_ops: Vec<SlotOp>,
     /// Rendered files for directories being created/replaced/re-rendered.
     pub creates: Vec<RenderedFile>,
-    /// Re-rendered shared top-level files (content-diffed at write time).
+    /// Re-rendered shared files, content-diffed at write time: the top-level
+    /// layer plus the `.env` writer scripts, which are shared protocol rather
+    /// than component code (see [`is_env_writer`]).
     pub shared_files: Vec<RenderedFile>,
     /// Shared files to delete (e.g. `blueprint/.gitkeep` when the predicate
     /// flips, or the nix files when `--nix` is turned off).
@@ -236,7 +238,7 @@ pub fn plan_update(
     let mut shared_files = Vec::new();
     let mut creates = Vec::new();
     for file in files {
-        if is_shared_layer(&file.dest) {
+        if is_shared_layer(&file.dest) || is_env_writer(&file.dest) {
             shared_files.push(file);
         } else if let Some(top) = top_dir(&file.dest)
             && write_dirs.contains(&top)
@@ -283,6 +285,36 @@ fn is_shared_layer(dest: &Path) -> bool {
                 | ".envrc"
                 | "blueprint/.gitkeep"
         )
+    )
+}
+
+/// Whether `dest` is one of the generated scripts that write the shared `.env`.
+///
+/// These live inside component directories but do not belong to any one
+/// component: they implement a mutual-exclusion protocol over a single file at
+/// the project root, so they are only correct while every writer in the project
+/// speaks the same version of it. A component slot whose tool is unchanged is
+/// KEPT, and a KEPT directory is normally not re-rendered, so without this
+/// exception `cardano-init add --devnet yaci` against a project whose `infra/`
+/// is unchanged would leave the old infra writer in place beside a new devnet
+/// writer. The two would not exclude each other and a concurrent
+/// `just dev` could still lose one writer's keys.
+///
+/// Treating them as shared layer keeps every writer in a project on one
+/// protocol version. It is the one thing written into a KEPT directory, and it
+/// is safe because these are generated scripts the user is not expected to edit
+/// rather than user code; `apply_update` still content-diffs before writing.
+fn is_env_writer(dest: &Path) -> bool {
+    let Some(parent) = dest.parent() else {
+        return false;
+    };
+    // Only `<component>/scripts/<name>`, never a root-level file of the same name.
+    if parent.file_name().and_then(|n| n.to_str()) != Some("scripts") || top_dir(dest).is_none() {
+        return false;
+    }
+    matches!(
+        dest.file_name().and_then(|n| n.to_str()),
+        Some("write-env.sh" | "set-env.mjs" | "set-env.sh" | "with-env-lock.ps1")
     )
 }
 
@@ -355,6 +387,73 @@ mod tests {
             plan.shared_files
                 .iter()
                 .any(|f| f.dest.to_str() == Some("Justfile"))
+        );
+    }
+
+    #[test]
+    fn is_env_writer_matches_only_generated_env_writers() {
+        for dest in [
+            "infra/scripts/write-env.sh",
+            "infra/scripts/with-env-lock.ps1",
+            "devnet/scripts/set-env.mjs",
+            "devnet/scripts/set-env.sh",
+        ] {
+            assert!(
+                is_env_writer(Path::new(dest)),
+                "{dest} should be an env writer"
+            );
+        }
+        for dest in [
+            // Root-level files of the same name are not component env writers.
+            "write-env.sh",
+            "set-env.mjs",
+            // Not under a `scripts/` directory.
+            "infra/write-env.sh",
+            "devnet/lib/set-env.mjs",
+            // Unrelated component files.
+            "devnet/scripts/compose.sh",
+            "infra/scripts/up.sh",
+            "off-chain/src/index.ts",
+        ] {
+            assert!(
+                !is_env_writer(Path::new(dest)),
+                "{dest} should not be an env writer"
+            );
+        }
+    }
+
+    #[test]
+    fn adding_devnet_refreshes_the_kept_infra_env_writer() {
+        // The mixed-generation hazard: `add --devnet yaci` against a project
+        // whose infra slot is unchanged KEEPs `infra/`, so without the env
+        // writers in the shared layer the old `infra/scripts/write-env.sh`
+        // would survive beside the new devnet writer and the two would not
+        // exclude each other on `.env`.
+        let reg = registry();
+        let old = sel(vec![
+            a(Role::OnChain, "aiken"),
+            a(Role::Infrastructure, "cardano-node"),
+        ]);
+        let new = apply(&old, &Mutation::Add(a(Role::Devnet, "yaci")));
+        let plan = plan_update(&old, &new, &reg).unwrap();
+
+        // infra is KEPT: no slot op, and no component-file writes into it.
+        assert!(!dirs_touched(&plan).contains(&"infra".to_string()));
+        assert!(!creates_under(&plan, "infra"));
+
+        // Its env writer is refreshed anyway, via the shared layer.
+        let shared: Vec<_> = plan
+            .shared_files
+            .iter()
+            .filter_map(|f| f.dest.to_str())
+            .collect();
+        assert!(
+            shared.contains(&"infra/scripts/write-env.sh"),
+            "kept infra env writer must be refreshed, got {shared:?}"
+        );
+        assert!(
+            shared.iter().any(|d| d.ends_with("/scripts/set-env.mjs")),
+            "new devnet env writer must be present, got {shared:?}"
         );
     }
 

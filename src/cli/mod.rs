@@ -626,7 +626,7 @@ pub fn run() -> i32 {
 ///
 /// The aggregated infra component is reported by the scan under the synthetic
 /// `INFRA_DRIVER_ID`; it contributes the union of every infra tool's
-/// `system_deps` (data-driven from the registry — `{docker, cardano-up}`).
+/// `system_deps` (data-driven from the registry — `{docker, cardano-up, env-lock}`).
 fn required_deps<'a>(tool_ids: impl Iterator<Item = &'a str>, registry: &Registry) -> Vec<String> {
     let mut deps = vec![crate::doctor::BASE_DEP.to_string()];
     for id in tool_ids {
@@ -1116,5 +1116,15 @@ mod tests {
         assert!(deps.contains(&"just".to_string()));
         assert!(deps.contains(&"docker".to_string()));
         assert!(deps.contains(&"cardano-up".to_string()));
+        assert!(deps.contains(&"env-lock".to_string()));
+    }
+
+    #[test]
+    fn required_deps_includes_yaci_env_lock() {
+        let registry = Registry::load().unwrap();
+        let deps = required_deps(["yaci"].into_iter(), &registry);
+        assert!(deps.contains(&"docker".to_string()));
+        assert!(deps.contains(&"node".to_string()));
+        assert!(deps.contains(&"env-lock".to_string()));
     }
 }

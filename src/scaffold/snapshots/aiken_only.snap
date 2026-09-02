@@ -178,6 +178,8 @@ node_modules/
 
 # Environment
 .env.local
+.env.lock
+.env.lock.tmp.*
 
 # IDE
 .idea/

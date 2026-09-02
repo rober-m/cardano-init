@@ -10,7 +10,7 @@ API is published to the project .env as INDEXER_URL and its socket as \
 NODE_SOCKET_PATH, so off-chain components connect to it automatically."""
 website = "https://github.com/blinklabs-io/dingo"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]

@@ -562,7 +562,7 @@ struct InstallerDef {
 
 The `arg`'s meaning is the installer's: a package name for managers, an installer-script URL for `Curl`/`PowerShell`, a target for `Aikup`/`CardanoUp`. Adding an installer is a deliberate code change, only when a real recipe needs it (same discipline as roles).
 
-**Recipes (data, `registry/deps.toml`)**: keyed by dep id; `install` is an ordered list of single-key `{ installer = arg }` methods (order = preference). Installer keys are validated against the `Installer` enum at load (unknown → load error):
+**Recipes (data, `registry/deps.toml`)**: keyed by dep id; `binaries_by_os` is an optional map of platform-specific presence alternatives, and `install` is an ordered list of single-key `{ installer = arg }` methods (order = preference). Installer keys and OS keys are validated at load (unknown → load error):
 
 ```toml
 [node]  
@@ -585,6 +585,12 @@ binaries=["just"]
 docs="https://just.systems"
 install=[ {brew="just"}, {apt="just"}, {cargo="just"}, {nix="just"} ]
 
+[env-lock]
+binaries=[]
+binaries_by_os={linux=["flock"], macos=["lockf"], windows=["powershell.exe", "pwsh.exe"]}
+docs="https://github.com/input-output-hk/cardano-init#system-requirements"
+install=[]
+
 [process-compose]
 binaries=["process-compose"]
 docs="https://f1bonacc1.github.io/process-compose/"
@@ -592,7 +598,12 @@ install=[ {brew="process-compose"}, {go="github.com/f1bonacc1/process-compose@la
 ```
 
 ```rust
-struct DepRecipe { binaries: Vec<String>, docs: String, install: Vec<(Installer, String)> }  // ordered
+struct DepRecipe {
+    binaries: Vec<String>,
+    binaries_by_os: Map<String, Vec<String>>, // optional linux/macos/windows/other alternatives
+    docs: String,
+    install: Vec<(Installer, String)>,         // ordered
+}
 type DepCatalog = HashMap<String, DepRecipe>;   // dep id → recipe (loaded from registry/deps.toml)
 ```
 
@@ -601,11 +612,15 @@ Installers (logic, closed vocab) are code; recipes (which installer + arg per de
 ### 9.3 Environment (impure probe)
 
 ```rust
-struct Environment { os: Os, installers: HashSet<Installer> /* detected present */ }
+struct Environment {
+    os: Os,
+    installers: HashSet<Installer>,
+    present_binaries: HashSet<String>,
+}
 enum Os { Linux, MacOs, Windows, Other }
 ```
 
-`probe.rs` detects the OS and which installers are present (installer available if one of its `detect` binaries is on `PATH`). A **dep** is present if one of its `binaries` is on `PATH`. No execution, no version (v1).
+`probe.rs` detects the OS and which installers are present (installer available if one of its `detect` binaries is on `PATH`). A **dep** is present if one of its general `binaries`, or one of the current OS entries in `binaries_by_os`, is on `PATH`. No execution, no version (v1).
 
 ### 9.4 Resolver (pure, recursive) & Report
 
@@ -613,7 +628,8 @@ enum Os { Linux, MacOs, Windows, Other }
 resolve(dep_id, env, catalog, seen) -> Plan | Unresolved:
     if dep_id ∈ seen:                  return Unresolved          // cycle guard
     rec = catalog[dep_id]
-    if any(rec.binaries on PATH):      return Plan([])            // already present
+    presence = rec.binaries + rec.binaries_by_os[env.os]
+    if any(presence on PATH):          return Plan([])            // already present
 
     // Pass 1 (preferred): the first method whose installer is usable right now.
     for (installer, arg) in rec.install:                          // ordered preference
@@ -669,7 +685,7 @@ The standalone `cardano-init doctor` takes **no flags describing the project**: 
 3. A tool matches if **any** of its `detect` signatures matches. Exactly one match ⇒ the component is identified. On an ambiguous multiple, a **definitive** match wins: a bare-path (existence-only) signature is a tool-unique manifest (e.g. `trix.toml`), whereas a `contains` needle only proves a *shared* file mentions the tool (e.g. a Tx3 project's `package.json` pulls in `@meshsdk` as a library, tripping MeshJS's needle). If exactly one candidate matched via a bare-path signature, that tool is identified; otherwise (zero matches, or still-ambiguous after this tiebreak) the directory is reported as **unrecognized** (renamed, modified, or a foreign project). A renamed *directory* simply isn't found, so that role is absent.
 4. The required set is `{just}` ∪ the `system_deps` of every identified tool (§9.1), fed to the resolver (§9.4).
 
-**Infrastructure is the exception.** The aggregated `infra/` component has no per-tool subdirs (it's the single cardano-up driver), so it is *not* matched against per-tool `detect` signatures. Instead the scan recognizes it by a driver marker — `infra/Justfile` referencing `cardano-up` — and reports a synthetic `cardano-up` component (`doctor::INFRA_DRIVER_ID`). Its contribution to the required set is the **union of all registered infra tools' `system_deps`** (`{docker, cardano-up}`), data-driven from the registry. So infra tools carry `detect = []`.
+**Infrastructure is the exception.** The aggregated `infra/` component has no per-tool subdirs (it's the single cardano-up driver), so it is *not* matched against per-tool `detect` signatures. Instead the scan recognizes it by a driver marker — `infra/Justfile` referencing `cardano-up` — and reports a synthetic `cardano-up` component (`doctor::INFRA_DRIVER_ID`). Its contribution to the required set is the **union of all registered infra tools' `system_deps`** (`{docker, cardano-up, env-lock}`), data-driven from the registry. So infra tools carry `detect = []`.
 
 **Fullstack `protocol/` is scanned like a normal component.** `protocol/` is not a `Role::ALL` directory, so it is handled by a dedicated branch: if `protocol/` exists, it is matched against the `detect` signatures of the tools that declare a `[fullstack]` template (the same per-tool signatures used for the role dirs — a fullstack tool's signatures must therefore be present in its fullstack template). Exactly one match ⇒ that component is identified; zero/ambiguous ⇒ `protocol/` is *unrecognized*. Unlike infra, the identified tool is a **real registry tool**, so its `system_deps` feed the required set via the normal `registry.get` path (no synthetic id).
 
@@ -839,13 +855,15 @@ Pure logic over `S_old`, `S_new`, and the registry (`scaffold::update`, beside t
 | absent → present | **CREATE**: plan+render that component into its dir. Precondition: the dir must not already exist on disk; if it does (a foreign/unrecognized dir), abort (`slot_occupied`). |
 | present → absent | **REMOVE**: `rm -rf <dir>` (removes user-added files in that dir too — intentional; git is the net). |
 | present → present, tool changed | **REPLACE**: REMOVE then CREATE. |
-| present → present, tool same (non-infra) | **KEEP** — never touched. |
+| present → present, tool same (non-infra) | **KEEP** — never touched, except the shared `.env` writer scripts (see below). |
 | infra: provider set changed (dir stays) | **RE-RENDER IN PLACE**: overwrite `infra/`'s managed files (`Justfile`, `README.md`, `scripts/write-env.sh`) from the new provider set. |
 | infra → empty | **REMOVE** `infra/`. |
 
 **Fusion boundary** is just rows in this table — no special "migration":
 - two dirs (`on-chain`+`off-chain`) → fullstack tool = REMOVE both + CREATE `protocol/` (a full replace; nothing is carried over — the code in the two dirs is deleted, loudly, git-recoverable).
 - `protocol/` → separate tools = REMOVE `protocol/` + CREATE the new dir(s). "Drop the off-chain half of a fused `protocol/`" is expressed as *replace `protocol/` with an on-chain tool* — the user must name that tool; there is no in-place split of a fused codebase.
+
+**`.env` writers are shared, not component-owned.** The generated scripts that write the project `.env` (`infra/scripts/write-env.sh`, `infra/scripts/with-env-lock.ps1`, and each devnet's `scripts/set-env.*`) sit inside component directories but implement a mutual-exclusion protocol over a single file at the project root. They are only correct while every writer in the project speaks the same version of that protocol, so they are planned as **shared layer** and refreshed even inside a KEPT directory. Without this, `cardano-init add --devnet yaci` against a project whose `infra/` is unchanged would leave a pre-protocol infra writer beside a new devnet writer and a concurrent `just dev` could still lose one writer's keys. This is the only thing written into a KEPT directory; it is safe because these are generated scripts rather than user code, and the content diff below still applies.
 
 **Shared layer** is always recomputed from `S_new` and written **per-file with a content diff** — a file is only rewritten if its bytes change (so a slot swap that doesn't alter, say, `.gitignore` leaves it alone). `blueprint/.gitkeep` is added/removed to match the predicate `any(role != Infrastructure)` (§6.2); `flake.nix`/`.envrc` follow the nix flag.
 
@@ -893,7 +911,7 @@ Error codes are defined in §2.5. This extends the init matrix (§12) for `add`/
 | 11 | `protocol/` → drop off-chain half | REPLACE `protocol/` with a user-named on-chain tool; no in-place split. |
 | 12 | Same tool on both roles, no `[fullstack]` | Two separate dirs (not fused); each removable independently. |
 | 13 | Infra provider set changes | RE-RENDER `infra/` in place from the new set; other slots untouched. |
-| 14 | Unchanged slot (e.g. Aiken while off-chain changes) | KEEP — provably untouched (§15.5). |
+| 14 | Unchanged slot (e.g. Aiken while off-chain changes) | KEEP — provably untouched, apart from the shared `.env` writers (§15.5). |
 | 15 | Unrecognized/renamed/foreign component dir | Interactive: surfaced, then a confirm to proceed with the detected stack (the odd dir is left in place, ignored). Non-interactive: `project_unrecognized` (fatal). |
 | 16 | Ambiguous detection (2+ tools match one dir) | Resolved by definitive-match tiebreak (§9.6): a single bare-path/manifest match wins over shared-file `contains` matches. Only if that leaves 2+ still tied is the dir treated as unrecognized. |
 | 17 | `infra/Justfile` hand-edited so providers unparseable | Recovered set shown in confirm; user corrects; non-interactive → treat as unrecognized. |

@@ -38,6 +38,16 @@ impl Os {
             _ => Os::Other,
         }
     }
+
+    /// Stable key used by platform-specific dependency recipe data.
+    pub fn as_key(self) -> &'static str {
+        match self {
+            Os::Linux => "linux",
+            Os::MacOs => "macos",
+            Os::Windows => "windows",
+            Os::Other => "other",
+        }
+    }
 }
 
 /// The probed environment the pure resolver runs against. Holds everything
@@ -55,12 +65,16 @@ pub struct Environment {
 /// Detect the environment: OS, available installers, and which catalog/installer
 /// binaries are on `PATH`.
 pub fn detect_environment(catalog: &DepCatalog) -> Environment {
-    // All binaries worth probing: every dep's presence binaries plus every
-    // installer's detection binaries.
+    let os = Os::detect();
+    // All binaries worth probing: every dep's general and current-OS presence
+    // binaries plus every installer's detection binaries.
     let mut binaries: HashSet<String> = HashSet::new();
     for id in catalog.dep_ids() {
         if let Some(recipe) = catalog.get(id) {
             binaries.extend(recipe.binaries.iter().cloned());
+            if let Some(items) = recipe.binaries_by_os.get(os.as_key()) {
+                binaries.extend(items.iter().cloned());
+            }
         }
     }
     for installer in Installer::ALL {
@@ -77,7 +91,7 @@ pub fn detect_environment(catalog: &DepCatalog) -> Environment {
         .collect();
 
     Environment {
-        os: Os::detect(),
+        os,
         installers,
         present_binaries,
     }

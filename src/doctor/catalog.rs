@@ -34,6 +34,9 @@ pub enum CatalogError {
 
     #[error("unknown installer '{installer}' in dep '{dep}'")]
     UnknownInstaller { dep: String, installer: String },
+
+    #[error("unknown OS '{os}' in dep '{dep}' (expected linux, macos, windows, or other)")]
+    UnknownOs { dep: String, os: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +55,8 @@ pub struct InstallMethod {
 pub struct DepRecipe {
     /// Presence check: the dep is present if any of these is on `PATH`.
     pub binaries: Vec<String>,
+    /// Additional presence binaries for a specific operating system.
+    pub binaries_by_os: HashMap<String, Vec<String>>,
     /// Universal fallback when the resolver can't produce a plan.
     pub docs: String,
     /// Ordered install methods (order = preference).
@@ -71,6 +76,8 @@ pub struct DepCatalog {
 #[derive(Deserialize)]
 struct DepRecipeToml {
     binaries: Vec<String>,
+    #[serde(default)]
+    binaries_by_os: HashMap<String, Vec<String>>,
     docs: String,
     /// Each entry is a single-key table: `{ brew = "node" }`.
     install: Vec<HashMap<String, String>>,
@@ -94,6 +101,14 @@ impl DepCatalog {
         let mut recipes = HashMap::with_capacity(raw.len());
 
         for (dep, recipe) in raw {
+            for os in recipe.binaries_by_os.keys() {
+                if !matches!(os.as_str(), "linux" | "macos" | "windows" | "other") {
+                    return Err(CatalogError::UnknownOs {
+                        dep: dep.clone(),
+                        os: os.clone(),
+                    });
+                }
+            }
             let mut install = Vec::with_capacity(recipe.install.len());
             for entry in recipe.install {
                 // Exactly one { installer = arg } per entry.
@@ -112,6 +127,7 @@ impl DepCatalog {
                 dep,
                 DepRecipe {
                     binaries: recipe.binaries,
+                    binaries_by_os: recipe.binaries_by_os,
                     docs: recipe.docs,
                     install,
                 },
@@ -158,6 +174,20 @@ mod tests {
     }
 
     #[test]
+    fn env_lock_recipe_has_platform_alternatives() {
+        let cat = DepCatalog::load().unwrap();
+        let lock = cat.get("env-lock").unwrap();
+        assert!(lock.binaries.is_empty());
+        assert_eq!(lock.binaries_by_os["linux"], ["flock"]);
+        assert_eq!(lock.binaries_by_os["macos"], ["lockf"]);
+        assert_eq!(
+            lock.binaries_by_os["windows"],
+            ["powershell.exe", "pwsh.exe"]
+        );
+        assert!(lock.install.is_empty());
+    }
+
+    #[test]
     fn unknown_installer_is_load_error() {
         let toml = r#"
 [foo]
@@ -167,6 +197,19 @@ install = [{ snap = "foo" }]
 "#;
         let err = DepCatalog::from_str(toml).unwrap_err();
         assert!(matches!(err, CatalogError::UnknownInstaller { .. }));
+    }
+
+    #[test]
+    fn unknown_os_is_load_error() {
+        let toml = r#"
+[foo]
+binaries = []
+binaries_by_os = { plan9 = ["foo"] }
+docs = "https://example.com"
+install = []
+"#;
+        let err = DepCatalog::from_str(toml).unwrap_err();
+        assert!(matches!(err, CatalogError::UnknownOs { .. }));
     }
 
     #[test]

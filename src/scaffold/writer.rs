@@ -36,9 +36,15 @@ fn write_file(root: &Path, dest: &Path, content: &[u8]) -> Result<(), ScaffoldEr
 /// Apply an [`UpdatePlan`] to an existing project at `root`.
 ///
 /// Component directories that are unchanged (KEEP) are never in the plan, so the
-/// user's code in them is never touched. The caller is responsible for the
-/// `Create`-target precondition (the dir must not already exist) and the
-/// git-clean safety gate; this function is the disk side effect only.
+/// user's code in them is never touched. The one exception is the generated
+/// `.env` writer scripts, which the plan carries in `shared_files`: they
+/// implement a mutual-exclusion protocol over one file and are only correct
+/// while every writer in the project speaks the same version of it, so they are
+/// refreshed even inside a KEPT directory. See `update::is_env_writer`.
+///
+/// The caller is responsible for the `Create`-target precondition (the dir must
+/// not already exist) and the git-clean safety gate; this function is the disk
+/// side effect only.
 ///
 /// Ordering: directories that go away (`Remove`) or are swapped (`Replace`) are
 /// deleted **first**, so a `Replace` removes the old tool's files before the new
@@ -63,8 +69,9 @@ pub fn apply_update(plan: &UpdatePlan, root: &Path) -> Result<(), ScaffoldError>
         write_file(root, &file.dest, &file.content)?;
     }
 
-    // 3. Overwrite shared top-level files, skipping byte-identical ones so an
-    //    unaffected file (e.g. `.gitignore`) is left alone.
+    // 3. Overwrite shared files, skipping byte-identical ones so an unaffected
+    //    file (e.g. `.gitignore`, or an env writer already on this version) is
+    //    left alone.
     for file in &plan.shared_files {
         let path = root.join(&file.dest);
         let unchanged = fs::read(&path)

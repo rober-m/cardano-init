@@ -10,7 +10,7 @@ automatically. Its endpoint is published to the project .env as INDEXER_URL, \
 so off-chain components connect to it without extra wiring."""
 website = "https://github.com/CardanoSolutions/kupo"
 languages = []
-system_deps = ["docker", "cardano-up"]
+system_deps = ["docker", "cardano-up", "env-lock"]
 nix_packages = []
 
 [roles.infrastructure]
