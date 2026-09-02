@@ -361,6 +361,7 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = resolve(projectRoot, ".env");
 const blueprintPath = resolve(projectRoot, "blueprint", "plutus.json");
+const yaciIndexerUrl = "http://localhost:8080/api/v1/";
 
 /** Minimal .env reader: `KEY=value` lines, last wins, no interpolation. */
 function readEnv(path) {
@@ -409,7 +410,11 @@ if (!indexerUrl) {
 
 // The Blockfrost-compatible base URL is expected to end in a slash, e.g.
 // http://localhost:8080/api/v1/ . Tolerate a missing one.
-const base = indexerUrl.endsWith("/") ? indexerUrl : `${indexerUrl}/`;
+const configuredBase = indexerUrl.endsWith("/") ? indexerUrl : `${indexerUrl}/`;
+if (configuredBase !== yaciIndexerUrl) {
+  fail(`INDEXER_URL must be ${yaciIndexerUrl}.`);
+}
+const base = yaciIndexerUrl;
 
 async function getJson(path) {
   const url = `${base}${path}`;
